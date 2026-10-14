@@ -132,10 +132,11 @@ const CONFIG = {
   adminEmail: "admin@soucinana.app",  // compte administrateur (à créer dans Firebase > Authentication)
   adminLogin: "admin",                // identifiant à taper pour se connecter en admin
   adminPassword: "admin2026",         // utilisé seulement en mode démo
-  adminMomo: "07 00 00 00 00",        // numéro Mobile Money / Wave qui reçoit les paiements
-  adminWhatsApp: "2250700000000",     // WhatsApp de l'admin (format international, sans +)
+  adminMomo: "05 44 07 60 62 ou 07 08 50 77 12", // numéros Wave qui reçoivent les paiements
+  adminWhatsApp: "2250544076062",     // WhatsApp principal de l'admin (format international, sans +)
+  adminWhatsApp2: "2250788589231",    // WhatsApp secondaire
   boostOffers: [ {days:1, price:500}, {days:3, price:1200}, {days:7, price:2500} ],
-  storageKey: "soucinana_v1"
+  storageKey: "soucinana_v2"
 };
 
 const ONLINE = !!(FIREBASE_CONFIG.apiKey && window.firebase);
@@ -508,7 +509,7 @@ function sendReport(id){
 function boostModal(pid){
   modal(`<h3>🚀 Booster ma publication</h3><p class="muted small">Votre publication s'affiche en tête du fil d'actualité de tous les utilisateurs pendant la durée choisie.</p>
   <div class="offers">${CONFIG.boostOffers.map((o,i)=>`<label class="offer"><input type="radio" name="bo" value="${i}" ${i===0?'checked':''}><b>${o.days} jour${o.days>1?'s':''}</b><span>${fmtF(o.price)}</span></label>`).join('')}</div>
-  <div class="pay"><b>Comment payer :</b><ol><li>Envoyez le montant par Orange Money, MTN, Moov ou Wave au <b>${esc(CONFIG.adminMomo)}</b>.</li><li>Saisissez ci-dessous la référence de la transaction.</li><li>Le boost s'active dès que l'administrateur confirme la réception.</li></ol></div>
+  <div class="pay"><b>Comment payer :</b><ol><li>Envoyez le montant par <b>Wave</b> au <b>${esc(CONFIG.adminMomo)}</b>.</li><li>Saisissez ci-dessous la référence de la transaction.</li><li>Le boost s'active dès que l'administrateur confirme la réception.</li></ol></div>
   <input id="bref" placeholder="Référence de la transaction">
   <button class="btn pri full" onclick="requestBoost('${pid}')">Envoyer ma demande</button>
   <button class="btn ghost full" onclick="closeModal()">Annuler</button>`);
@@ -529,7 +530,8 @@ const statusTag = s => s==='ok'?'<span class="tag ok">Activé</span>':s==='refus
 function adsInfoModal(){
   modal(`<h3>📣 Faire de la publicité</h3><p>Faites connaître votre commerce, votre école ou votre événement à toute la ville.</p>
   <div class="pay"><b>Deux options :</b><ol><li><b>Booster</b> une de vos publications (dès ${fmtF(CONFIG.boostOffers[0].price)}) via le menu ⋯ de la publication.</li><li><b>Campagne sponsorisée</b> : une annonce avec image et bouton de contact, diffusée dans le fil de tous les utilisateurs. Contactez l'administrateur.</li></ol></div>
-  <a class="btn acc full" href="https://wa.me/${esc(CONFIG.adminWhatsApp)}" target="_blank" rel="noopener">Contacter l'administrateur sur WhatsApp</a>
+  <a class="btn acc full" href="https://wa.me/${esc(CONFIG.adminWhatsApp)}" target="_blank" rel="noopener">WhatsApp : 05 44 07 60 62</a>
+  <a class="btn acc full" href="https://wa.me/${esc(CONFIG.adminWhatsApp2)}" target="_blank" rel="noopener">WhatsApp : 07 88 58 92 31</a>
   <button class="btn ghost full" onclick="closeModal()">Fermer</button>`);
 }
 
