@@ -1,0 +1,854 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#0b7a4b">
+<title>SouciNana</title>
+<link rel="manifest" href="manifest.json">
+<link rel="icon" href="icon-192.png">
+<link rel="apple-touch-icon" href="icon-192.png">
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+<style>
+:root{--pri:#0b7a4b;--acc:#f28c28;--bg:#eef1f4;--card:#fff;--tx:#1c1e21;--mu:#65676b;--bd:#e3e6ea;--red:#d93025}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;background:var(--bg);color:var(--tx);font-size:15px;line-height:1.4}
+a{color:var(--pri);text-decoration:none}
+h2{font-size:20px}
+header.top{position:fixed;top:0;left:0;right:0;height:56px;background:var(--card);display:flex;align-items:center;justify-content:space-between;padding:0 12px;box-shadow:0 1px 3px rgba(0,0,0,.08);z-index:20}
+.logo{font-weight:900;font-size:22px;color:var(--pri);letter-spacing:-.5px}
+.top-actions{display:flex;gap:8px}
+.ic{position:relative;border:0;background:var(--bg);width:40px;height:40px;border-radius:50%;font-size:18px;cursor:pointer}
+.badge{position:absolute;top:-2px;right:-2px;background:var(--red);color:#fff;font-size:11px;min-width:18px;height:18px;border-radius:9px;display:flex;align-items:center;justify-content:center;padding:0 4px}
+main{max-width:640px;margin:0 auto;padding:66px 8px 80px}
+.demo{background:#fff3cd;color:#8a6d00;font-size:12px;text-align:center;padding:5px;border-radius:8px;margin-bottom:8px}
+nav.bottom{position:fixed;bottom:0;left:0;right:0;height:62px;background:var(--card);display:flex;border-top:1px solid var(--bd);z-index:20;padding-bottom:env(safe-area-inset-bottom)}
+nav.bottom a{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;color:var(--mu);font-size:11px;position:relative}
+nav.bottom a .i{font-size:22px}
+nav.bottom a.on{color:var(--pri);font-weight:700}
+nav.bottom a.on::before{content:"";position:absolute;top:0;left:20%;right:20%;height:3px;background:var(--pri);border-radius:0 0 3px 3px}
+nav.bottom .badge{top:4px;right:calc(50% - 22px)}
+.card{background:var(--card);border-radius:12px;padding:12px;margin-bottom:10px;box-shadow:0 1px 2px rgba(0,0,0,.06)}
+.row{display:flex;gap:8px;align-items:center}
+.between{justify-content:space-between}.center{justify-content:center;text-align:center}
+.grow{flex:1;min-width:0}
+.muted{color:var(--mu)}.small{font-size:13px}
+.av{border-radius:50%;object-fit:cover;display:inline-flex;align-items:center;justify-content:center;color:#fff;font-weight:700;flex-shrink:0}
+.btn{border:0;background:var(--bg);color:var(--tx);padding:9px 14px;border-radius:8px;font-weight:600;font-size:14px;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;gap:6px}
+.btn.pri{background:var(--pri);color:#fff}.btn.acc{background:var(--acc);color:#fff}.btn.red{background:var(--red);color:#fff}
+.btn.ghost{background:transparent;color:var(--mu)}
+.btn.full{width:100%;margin-top:8px}.btn.sm{padding:6px 10px;font-size:13px}
+.btn:disabled{opacity:.6}
+input,textarea,select{width:100%;border:1px solid var(--bd);border-radius:8px;padding:11px;font:inherit;background:#fafbfc;margin-bottom:8px}
+textarea.big{min-height:80px}
+.composer textarea{flex:1;resize:none;min-height:44px;border:0;background:var(--bg);border-radius:20px;padding:11px 14px;margin:0}
+.composer .between{margin-top:8px;border-top:1px solid var(--bd);padding-top:8px}
+.preview{position:relative;margin-top:8px}.preview img{width:100%;border-radius:8px;max-height:300px;object-fit:cover}
+.x{position:absolute;top:6px;right:6px;border:0;background:rgba(0,0,0,.6);color:#fff;width:30px;height:30px;border-radius:50%}
+.post{padding:12px 0}.post>*{padding-left:12px;padding-right:12px}
+.post-head{display:flex;gap:10px;align-items:center}
+.name{font-weight:700;color:var(--tx)}
+.post-text{margin:10px 0;word-wrap:break-word}
+.post-img{width:100%;max-height:520px;object-fit:cover;display:block;padding:0!important;margin:6px 0}
+.post-stats{display:flex;justify-content:space-between;padding-top:6px;padding-bottom:6px}
+.post-actions{display:flex;border-top:1px solid var(--bd);margin:0 12px;padding:4px 0 0!important}
+.post-actions button{flex:1;border:0;background:none;padding:8px 4px;color:var(--mu);font-weight:600;border-radius:6px;cursor:pointer;font-size:14px}
+.post-actions button.on{color:var(--red)}
+.cmt{display:flex;gap:8px;margin-top:8px}
+.cmt .bub{background:var(--bg);border-radius:14px;padding:7px 11px}
+.comment-box{margin-top:10px}.comment-box input{margin:0;border-radius:20px}
+.tag{padding:2px 7px;border-radius:10px;font-size:11px;font-weight:700;display:inline-block}
+.tag.acc{background:#fde7d2;color:#b25b0b}.tag.ok{background:#d7f2e4;color:var(--pri)}.tag.wait{background:#fff3cd;color:#8a6d00}.tag.no{background:#fde0de;color:var(--red)}
+.ad{border:1px solid #fbd3ad}
+.profile{padding:0;overflow:hidden;text-align:center;padding-bottom:14px}
+.cover{height:150px;background:linear-gradient(135deg,var(--pri),var(--acc));background-size:cover;background-position:center}
+.pav{margin-top:-50px;display:flex;justify-content:center}.pav .av{border:4px solid #fff}
+.profile h2{margin-top:6px}.profile p{margin:4px 12px}
+.grid-friends{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-top:8px}
+.fcell{display:flex;flex-direction:column;align-items:center;gap:4px;color:var(--tx);font-size:13px}
+h3{font-size:17px;margin-bottom:6px}
+.list-item{display:flex;gap:10px;align-items:center;padding:10px 0;border-bottom:1px solid var(--bd);color:inherit}.list-item:last-child{border:0}
+.chips,.tabs{display:flex;gap:6px;overflow-x:auto;padding-bottom:6px;margin-bottom:6px}
+.chip{border:0;background:var(--card);padding:7px 12px;border-radius:16px;white-space:nowrap;font-weight:600;font-size:13px;cursor:pointer}.chip.on{background:var(--pri);color:#fff}
+.market{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.mitem{background:var(--card);border-radius:10px;overflow:hidden;cursor:pointer}
+.mitem .ph{aspect-ratio:1;background:#dde3e8 center/cover;display:flex;align-items:center;justify-content:center;font-size:40px}
+.mitem .in{padding:8px}.mitem b{display:block}.price{color:var(--pri);font-weight:800}
+.chat{display:flex;flex-direction:column;height:calc(100vh - 150px)}
+.chatbox{flex:1;overflow-y:auto;padding:8px 0;display:flex;flex-direction:column;gap:6px}
+.msg{max-width:78%;padding:8px 12px;border-radius:18px;background:var(--card)}
+.msg.me{align-self:flex-end;background:var(--pri);color:#fff}
+.msg .t{font-size:11px;opacity:.7;display:block;text-align:right}
+.chat .send{display:flex;gap:6px;padding-top:6px}.chat .send input{margin:0;border-radius:20px}
+.notif{display:flex;gap:10px;padding:10px;border-radius:8px;align-items:center;cursor:pointer}.notif.unread{background:#e7f5ee}
+.menu a{display:flex;gap:12px;align-items:center;padding:12px 6px;color:var(--tx);font-weight:600;border-bottom:1px solid var(--bd)}
+.menu a:last-child{border:0}.menu a span{font-size:22px;width:30px;text-align:center}
+.modal{position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:50;display:flex;align-items:flex-end;justify-content:center}
+.modal.hidden{display:none}
+.sheet{background:var(--card);width:100%;max-width:640px;border-radius:16px 16px 0 0;padding:16px;max-height:90vh;overflow-y:auto;animation:up .2s}
+@keyframes up{from{transform:translateY(40px);opacity:0}}
+.sheet h3{margin-bottom:10px}
+.opt{display:block;width:100%;text-align:left;border:0;background:none;padding:13px 6px;font-size:15px;border-bottom:1px solid var(--bd);cursor:pointer}
+.offers{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin:10px 0}
+.offer{border:2px solid var(--bd);border-radius:10px;padding:10px 4px;text-align:center;display:flex;flex-direction:column;gap:2px;cursor:pointer;font-size:14px}
+.offer input{display:none}.offer:has(input:checked){border-color:var(--acc);background:#fff6ec}
+.pay{background:var(--bg);border-radius:10px;padding:10px;margin-bottom:10px;font-size:14px}.pay ol{margin:6px 0 0 18px}
+.toast{position:fixed;left:50%;bottom:80px;transform:translateX(-50%) translateY(20px);background:#222;color:#fff;padding:10px 16px;border-radius:20px;opacity:0;transition:.25s;z-index:60;font-size:14px;max-width:90%;text-align:center;pointer-events:none}
+.toast.show{opacity:1;transform:translateX(-50%)}
+.auth{min-height:100vh;display:flex;flex-direction:column;justify-content:center;padding:20px;max-width:420px;margin:0 auto}
+.auth-hero{text-align:center;margin-bottom:18px}.auth-logo{font-size:40px;font-weight:900;color:var(--pri)}
+.auth-card h2{margin-bottom:12px}
+.sep{height:1px;background:var(--bd);margin:14px 0}
+.empty{text-align:center;color:var(--mu);padding:30px 10px}
+.stats{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px}
+.stat{background:var(--card);border-radius:10px;padding:12px}.stat b{font-size:22px;display:block;color:var(--pri)}
+.back{display:inline-block;margin-bottom:8px;font-weight:600}
+.imgprev{display:none;width:100%;border-radius:8px;margin-bottom:8px;max-height:260px;object-fit:cover}
+</style>
+</head>
+<body>
+<div id="app"></div>
+<div id="modal" class="modal hidden"></div>
+<div id="toast" class="toast"></div>
+<script>
+/* ================= FIREBASE : collez ici la configuration de votre projet =================
+   Tant que apiKey est vide, l'application fonctionne en MODE DÉMO (données sur l'appareil). */
+const FIREBASE_CONFIG = {
+  apiKey: "",
+  authDomain: "",
+  projectId: "",
+  storageBucket: "",
+  messagingSenderId: "",
+  appId: ""
+};
+
+/* ================= CONFIGURATION ================= */
+const CONFIG = {
+  appName: "SouciNana",
+  slogan: "Le réseau social de Boundiali",
+  emailDomain: "soucinana.app",       // les comptes sont créés sous la forme <numéro>@soucinana.app
+  adminEmail: "admin@soucinana.app",  // compte administrateur (à créer dans Firebase > Authentication)
+  adminLogin: "admin",                // identifiant à taper pour se connecter en admin
+  adminPassword: "admin2026",         // utilisé seulement en mode démo
+  adminMomo: "07 00 00 00 00",        // numéro Mobile Money / Wave qui reçoit les paiements
+  adminWhatsApp: "2250700000000",     // WhatsApp de l'admin (format international, sans +)
+  boostOffers: [ {days:1, price:500}, {days:3, price:1200}, {days:7, price:2500} ],
+  storageKey: "soucinana_v1"
+};
+
+const ONLINE = !!(FIREBASE_CONFIG.apiKey && window.firebase);
+
+/* ================= OUTILS ================= */
+const $ = s => document.querySelector(s);
+const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2,9);
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const fmtF = n => Number(n||0).toLocaleString('fr-FR') + ' FCFA';
+const priceTxt = n => Number(n) > 0 ? fmtF(n) : 'Prix à discuter';
+const fmtText = t => esc(t).replace(/\n/g,'<br>').replace(/(^|\s)#([\wÀ-ÿ]+)/g,'$1<b style="color:var(--pri)">#$2</b>');
+function ago(ts){const s=(Date.now()-ts)/1000;if(s<60)return "à l'instant";if(s<3600)return Math.floor(s/60)+' min';if(s<86400)return Math.floor(s/3600)+' h';if(s<604800)return Math.floor(s/86400)+' j';return new Date(ts).toLocaleDateString('fr-FR');}
+function hashPw(p){let h=7;for(const c of String(p))h=(h*31+c.charCodeAt(0))|0;return 'h'+h;}
+const normPhone = p => String(p||'').replace(/[\s.-]+/g,'');
+function color(s){let h=0;for(const c of String(s))h=(h*37+c.charCodeAt(0))%360;return `hsl(${h},55%,45%)`;}
+const initials = n => String(n||'?').split(' ').filter(Boolean).slice(0,2).map(w=>w[0]).join('').toUpperCase();
+const go = h => { location.hash = h; };
+const empty = t => `<div class="empty">${t}</div>`;
+let tt; function toast(t){const e=$('#toast');e.textContent=t;e.classList.add('show');clearTimeout(tt);tt=setTimeout(()=>e.classList.remove('show'),2800);}
+function modal(html){const m=$('#modal');m.innerHTML=`<div class="sheet">${html}</div>`;m.classList.remove('hidden');m.onclick=e=>{if(e.target===m)closeModal();};}
+function closeModal(){const m=$('#modal');m.classList.add('hidden');m.innerHTML='';if(pendingRender){pendingRender=false;render();}}
+function setPrev(id,d){const e=$('#'+id);if(e){e.src=d;e.style.display='block';}}
+function pickImg(input,cb,max=1000){const f=input.files&&input.files[0];if(!f)return;const r=new FileReader();r.onload=e=>{const img=new Image();img.onload=()=>{const k=Math.min(1,max/Math.max(img.width,img.height));const c=document.createElement('canvas');c.width=Math.round(img.width*k);c.height=Math.round(img.height*k);c.getContext('2d').drawImage(img,0,0,c.width,c.height);cb(c.toDataURL('image/jpeg',.7));};img.src=e.target.result;};r.readAsDataURL(f);}
+function contactHref(c){c=String(c||'').trim();if(/^https?:\/\//i.test(c))return esc(c);return 'https://wa.me/'+c.replace(/\D/g,'');}
+
+/* ================= DONNÉES ================= */
+const COLS=['users','posts','groups','listings','ads','friends','requests','messages','notifs','boosts','reports'];
+let S, db=null, auth=null, FV=null, unsubs=[], base={}, parts={};
+let booted=!ONLINE;
+function emptyState(){const s={session:null};COLS.forEach(c=>s[c]=[]);return s;}
+const U = id => S.users.find(u=>u.id===id);
+const ME = () => S.users.find(u=>u.id===S.session && !u.blocked);
+const visibleUser = id => { const u=U(id); return u && !u.blocked; };
+function notify(to,text,link){S.notifs.unshift({id:uid(),to,text,link,ts:Date.now(),read:false});if(!ONLINE)S.notifs=S.notifs.slice(0,300);}
+
+function load(){
+  if(ONLINE){
+    S=emptyState();
+    firebase.initializeApp(FIREBASE_CONFIG);
+    auth=firebase.auth(); db=firebase.firestore(); FV=firebase.firestore.FieldValue;
+    try{db.enablePersistence({synchronizeTabs:true}).catch(()=>{});}catch(e){}
+    auth.onAuthStateChanged(onAuth);
+    return;
+  }
+  try{S=JSON.parse(localStorage.getItem(CONFIG.storageKey));}catch(e){S=null;}
+  if(!S||!S.users||!S.friends||Array.isArray(S.friends[0]))S=seed();
+}
+
+/* --- Synchronisation Firestore : chaque modification de S est envoyée au serveur --- */
+const fail=e=>{console.warn(e);toast(e&&e.code==='permission-denied'?'Action non autorisée':'Problème de connexion, réessayez');};
+const clean=o=>JSON.parse(JSON.stringify(o));
+const INC_KEYS=['shares','views','clicks'];
+function save(){
+  if(!ONLINE){try{localStorage.setItem(CONFIG.storageKey,JSON.stringify(S));}catch(e){toast('Mémoire pleine : supprimez quelques photos.');}return;}
+  for(const c of COLS){
+    const b=base[c]||{},nb={},cur={};
+    S[c].forEach(d=>{if(!d.id)d.id=uid();cur[d.id]=d;});
+    for(const id in cur){
+      const js=JSON.stringify(cur[id]);nb[id]=js;if(js===b[id])continue;
+      const ref=db.collection(c).doc(id);
+      if(b[id]&&(c==='posts'||c==='groups'||c==='ads')){
+        const old=JSON.parse(b[id]),neu=cur[id],upd={};
+        for(const k of new Set([...Object.keys(old),...Object.keys(neu)])){
+          const o=old[k],n=neu[k];if(JSON.stringify(o)===JSON.stringify(n))continue;
+          if(Array.isArray(o)&&Array.isArray(n)){
+            const os=o.map(x=>JSON.stringify(x)),ns=n.map(x=>JSON.stringify(x));
+            const add=n.filter((x,i)=>!os.includes(ns[i])),rem=o.filter((x,i)=>!ns.includes(os[i]));
+            upd[k]=(add.length&&rem.length)?clean(n):add.length?FV.arrayUnion(...clean(add)):FV.arrayRemove(...clean(rem));
+          }else if(INC_KEYS.includes(k)&&typeof o==='number'&&typeof n==='number')upd[k]=FV.increment(n-o);
+          else upd[k]=n===undefined?FV.delete():clean(n);
+        }
+        ref.update(upd).catch(fail);
+      }else ref.set(clean(cur[id])).catch(fail);
+    }
+    for(const id in b)if(!(id in cur))db.collection(c).doc(id).delete().catch(fail);
+    base[c]=nb;
+  }
+}
+const MULTI={messages:['m1','m2'],notifs:['n1','n2']};
+function applySnap(col,key,sn){
+  parts[key]={};sn.forEach(d=>{parts[key][d.id]={...d.data(),id:d.id};});
+  const merged={};(MULTI[col]||[key]).forEach(k=>Object.assign(merged,parts[k]||{}));
+  const arr=Object.values(merged);
+  if(col==='messages')arr.sort((a,b)=>a.ts-b.ts);
+  else if(arr.length&&arr[0].ts!==undefined)arr.sort((a,b)=>b.ts-a.ts);
+  S[col]=arr;base[col]={};arr.forEach(d=>base[col][d.id]=JSON.stringify(d));
+  if(col==='users'){
+    const mine=arr.find(u=>u.id===S.session);
+    if(mine&&mine.blocked){toast("Ce compte a été suspendu par l'administrateur");auth.signOut();return;}
+  }
+  scheduleRender();
+}
+async function onAuth(user){
+  unsubs.forEach(u=>u());unsubs=[];parts={};base={};S=emptyState();COLS.forEach(c=>base[c]={});
+  booted=true;
+  if(!user){render();return;}
+  S.session=user.uid;render();
+  const me=user.uid,admin=user.email===CONFIG.adminEmail;
+  if(admin){
+    const ref=db.collection('users').doc(me);
+    const snap=await ref.get().catch(()=>null);
+    if(snap&&!snap.exists)await ref.set({id:me,name:'Administrateur '+CONFIG.appName,quartier:'Boundiali',bio:'Compte officiel de '+CONFIG.appName,avatar:null,cover:null,joined:Date.now(),isAdmin:true,blocked:false}).catch(fail);
+    seedOnline(me);
+  }
+  const L=(col,q,key)=>unsubs.push(q.onSnapshot(sn=>applySnap(col,key||col,sn),e=>console.warn(col,e)));
+  const C=c=>db.collection(c);
+  L('users',C('users'));
+  L('posts',C('posts').orderBy('ts','desc').limit(300));
+  L('groups',C('groups'));
+  L('listings',C('listings').orderBy('ts','desc').limit(300));
+  L('ads',C('ads'));
+  L('friends',C('friends'));
+  L('requests',C('requests'));
+  L('messages',C('messages').where('from','==',me),'m1');
+  L('messages',C('messages').where('to','==',me),'m2');
+  L('notifs',C('notifs').where('to','==',me),'n1');
+  if(admin){L('notifs',C('notifs').where('to','==','ADMIN'),'n2');L('boosts',C('boosts'));L('reports',C('reports'));}
+  else L('boosts',C('boosts').where('user','==',me));
+}
+async function seedOnline(me){
+  const s=await db.collection('groups').limit(1).get().catch(()=>null);
+  if(!s||!s.empty)return;
+  const now=Date.now(),b=db.batch();
+  [['g1','Boundiali Infos','Actualités et informations utiles de la ville','📢'],['g2','Emplois & Opportunités',"Offres d'emploi, stages et petits boulots",'💼'],['g3','Sport à Boundiali','Matchs, tournois et activités sportives','⚽'],['g4','Jeunesse de Boundiali','Échanges, projets et événements des jeunes','🌱']]
+    .forEach(g=>b.set(db.collection('groups').doc(g[0]),{id:g[0],name:g[1],desc:g[2],icon:g[3],members:[me],owner:me}));
+  const pid=uid();
+  b.set(db.collection('posts').doc(pid),{id:pid,author:me,text:'Bienvenue sur '+CONFIG.appName+' 🎉 Partagez vos nouvelles, vendez sur le Marché et rejoignez les groupes de votre ville !',img:null,ts:now,likes:[],comments:[],groupId:null,boostedUntil:0,shares:0});
+  b.set(db.collection('ads').doc('a1'),{id:'a1',advertiser:CONFIG.appName,title:'Votre publicité ici !',text:"Faites connaître votre commerce à toute la ville de Boundiali. Contactez l'administrateur pour lancer votre campagne.",img:null,contact:CONFIG.adminWhatsApp,cta:'Contacter sur WhatsApp',active:true,views:0,clicks:0,ts:now});
+  b.commit().catch(fail);
+}
+
+/* --- Rendu différé : on ne casse pas la saisie en cours quand des données arrivent --- */
+let rq=false,pendingRender=false;
+function scheduleRender(){
+  if(rq)return;rq=true;
+  requestAnimationFrame(()=>{
+    rq=false;
+    const a=document.activeElement;
+    const typing=a&&/INPUT|TEXTAREA|SELECT/.test(a.tagName)&&a.closest('#app');
+    const modalOpen=!$('#modal').classList.contains('hidden');
+    if(typing||modalOpen){
+      pendingRender=true;
+      const r=(location.hash||'').split('/');
+      if(r[1]==='chat'&&$('#chatbox')&&ME()){$('#chatbox').innerHTML=chatMsgs(r[2]);markRead(r[2]);const cb=$('#chatbox');cb.scrollTop=cb.scrollHeight;}
+      return;
+    }
+    render();
+  });
+}
+document.addEventListener('focusout',()=>setTimeout(()=>{
+  if(!pendingRender)return;const a=document.activeElement;
+  if(!(a&&/INPUT|TEXTAREA|SELECT/.test(a.tagName))&&$('#modal').classList.contains('hidden')){pendingRender=false;render();}
+},200));
+
+/* --- Données de démonstration (mode hors ligne uniquement) --- */
+function seed(){
+  const now=Date.now(),H=3600e3,D=86400e3;
+  const du=(id,name,bio)=>({id,name,phone:'',pw:'',quartier:'Boundiali',bio,avatar:null,cover:null,joined:now-30*D,demo:true,blocked:false});
+  const users=[
+    {id:'admin',name:'Administrateur '+CONFIG.appName,phone:CONFIG.adminLogin,pw:hashPw(CONFIG.adminPassword),quartier:'Boundiali',bio:'Compte officiel de '+CONFIG.appName,avatar:null,cover:null,joined:now-60*D,isAdmin:true,blocked:false},
+    du('u1','Fatou Coulibaly','Commerçante 🛍️ Pagnes et accessoires'),
+    du('u2','Moussa Silué','Footballeur du dimanche ⚽'),
+    du('u3','Awa Ouattara','Étudiante 📚'),
+    du('u4','Ibrahim Koné','Mécanicien moto 🔧'),
+    du('u5','Mariam Soro','Enseignante 👩🏾‍🏫'),
+    du('u6','Drissa Touré','Réparateur de téléphones 📱')
+  ];
+  const all=users.map(u=>u.id);
+  const P=(id,author,text,ago,likes=[],comments=[],groupId=null)=>({id,author,text,img:null,ts:now-ago,likes,comments,groupId,boostedUntil:0,shares:0});
+  const C=(author,text,ago)=>({id:uid(),author,text,ts:now-ago});
+  const F=(a,b)=>({id:uid(),a,b});
+  return {
+    session:null, users,
+    posts:[
+      P('p1','u2',"Bonsoir la famille de Boundiali 👋 Qui est partant pour le match de quartier ce week-end ? ⚽ #sport",2*H,['u1','u3'],[C('u4','Moi je suis partant 💪',1*H)]),
+      P('p2','u1',"Nouvel arrivage de pagnes à ma boutique ! Passez voir, les prix sont discutables 😉",5*H,['u3','u5']),
+      P('p3','u3',"Merci à tous pour vos messages pour mon anniversaire ❤️🎂",26*H,['u1','u2','u5'],[C('u5','Joyeux anniversaire ma chérie 🎉',25*H)]),
+      P('p4','u5',"Les inscriptions pour les cours de vacances sont ouvertes. Écrivez-moi en privé pour plus d'infos.",50*H,['u4']),
+      P('p5','admin',"Bienvenue sur "+CONFIG.appName+" 🎉 Partagez vos nouvelles, vendez sur le Marché et rejoignez les groupes de votre ville !",72*H,['u1','u2','u3','u4']),
+      P('p6','admin',"Bienvenue dans le groupe ! Partagez ici les informations utiles pour la ville.",70*H,[],[],'g1')
+    ],
+    groups:[
+      {id:'g1',name:'Boundiali Infos',desc:'Actualités et informations utiles de la ville',icon:'📢',members:all,owner:'admin'},
+      {id:'g2',name:'Emplois & Opportunités',desc:"Offres d'emploi, stages et petits boulots",icon:'💼',members:['u3','u5','u6'],owner:'admin'},
+      {id:'g3',name:'Sport à Boundiali',desc:'Matchs, tournois et activités sportives',icon:'⚽',members:['u2','u4'],owner:'u2'},
+      {id:'g4',name:'Jeunesse de Boundiali',desc:'Échanges, projets et événements des jeunes',icon:'🌱',members:['u1','u2','u3'],owner:'admin'}
+    ],
+    friends:[F('u1','u2'),F('u1','u3'),F('u2','u4'),F('u3','u5'),F('u5','u6')],
+    requests:[], messages:[], notifs:[], boosts:[], reports:[],
+    listings:[
+      {id:'l1',seller:'u4',title:"Moto d'occasion, bon état",price:350000,cat:'Véhicules',desc:'Papiers à jour, visible au garage.',img:null,ts:now-8*H,sold:false},
+      {id:'l2',seller:'u1',title:'Pagnes wax (6 yards)',price:12000,cat:'Mode',desc:'Plusieurs motifs disponibles.',img:null,ts:now-20*H,sold:false},
+      {id:'l3',seller:'u6',title:'Réparation de téléphones',price:0,cat:'Services',desc:'Écrans, batteries, connecteurs. Travail rapide.',img:null,ts:now-40*H,sold:false},
+      {id:'l4',seller:'u5',title:'Cours de répétition à domicile',price:15000,cat:'Services',desc:'Primaire et collège, par mois.',img:null,ts:now-60*H,sold:false}
+    ],
+    ads:[{id:'a1',advertiser:CONFIG.appName,title:'Votre publicité ici !',text:"Faites connaître votre commerce à toute la ville de Boundiali. Contactez l'administrateur pour lancer votre campagne.",img:null,contact:CONFIG.adminWhatsApp,cta:'Contacter sur WhatsApp',active:true,views:0,clicks:0,ts:now}]
+  };
+}
+
+/* ================= AUTHENTIFICATION ================= */
+const toEmail = id => id.trim().toLowerCase()===CONFIG.adminLogin ? CONFIG.adminEmail : normPhone(id).replace(/\D/g,'')+'@'+CONFIG.emailDomain;
+function authErr(e){const c=(e&&e.code)||'';
+  if(c.includes('email-already-in-use'))return 'Ce numéro a déjà un compte';
+  if(c.includes('invalid-credential')||c.includes('wrong-password')||c.includes('user-not-found')||c.includes('invalid-email'))return 'Numéro ou mot de passe incorrect';
+  if(c.includes('weak-password'))return 'Mot de passe trop faible (6 caractères minimum)';
+  if(c.includes('network'))return 'Pas de connexion internet';
+  if(c.includes('too-many-requests'))return 'Trop de tentatives, réessayez dans quelques minutes';
+  return 'Erreur : '+(c||'inconnue');}
+function busy(on){document.querySelectorAll('.auth button').forEach(b=>b.disabled=on);}
+function authView(mode){
+  return `<div class="auth"><div class="auth-hero"><div class="auth-logo">${esc(CONFIG.appName)}</div><p class="muted">${esc(CONFIG.slogan)}</p></div>
+  <div class="card auth-card">${mode==='login'?`
+    <h2>Connexion</h2>
+    <input id="lphone" placeholder="Numéro de téléphone" inputmode="tel" autocomplete="username">
+    <input id="lpw" type="password" placeholder="Mot de passe" autocomplete="current-password" onkeydown="if(event.key==='Enter')doLogin()">
+    <button class="btn pri full" onclick="doLogin()">Se connecter</button>
+    <div class="sep"></div>
+    <button class="btn acc full" onclick="go('#/register')">Créer un nouveau compte</button>`:`
+    <h2>Inscription</h2>
+    <input id="rname" placeholder="Nom et prénoms">
+    <input id="rphone" placeholder="Numéro de téléphone" inputmode="tel" autocomplete="username">
+    <input id="rq" placeholder="Votre quartier à Boundiali">
+    <input id="rpw" type="password" placeholder="Mot de passe (6 caractères min.)" autocomplete="new-password">
+    <button class="btn pri full" onclick="doRegister()">S'inscrire</button>
+    <p class="muted center" style="margin-top:12px"><a href="#/login">J'ai déjà un compte</a></p>`}
+  </div>${installBtn('ghost')}${ONLINE?'':'<p class="demo">Mode démo : les données restent sur cet appareil</p>'}</div>`;
+}
+async function doLogin(){
+  const id=$('#lphone').value,pw=$('#lpw').value;
+  if(!id||!pw)return toast('Entrez votre numéro et votre mot de passe');
+  if(ONLINE){busy(true);try{await auth.signInWithEmailAndPassword(toEmail(id),pw);location.hash='#/feed';}catch(e){toast(authErr(e));}busy(false);return;}
+  const ph=normPhone(id);
+  const u=S.users.find(x=>x.phone&&normPhone(x.phone)===ph&&x.pw===hashPw(pw));
+  if(!u)return toast('Numéro ou mot de passe incorrect');
+  if(u.blocked)return toast("Ce compte a été suspendu par l'administrateur");
+  S.session=u.id;save();location.hash='#/feed';render();
+}
+async function doRegister(){
+  const name=$('#rname').value.trim(),ph=normPhone($('#rphone').value),q=$('#rq').value.trim()||'Boundiali',pw=$('#rpw').value;
+  if(name.length<3)return toast('Entrez votre nom complet');
+  if(!/^\+?\d{8,14}$/.test(ph))return toast('Numéro de téléphone invalide');
+  if(pw.length<6)return toast('Mot de passe : 6 caractères minimum');
+  const welcome=`Bienvenue sur ${CONFIG.appName}, ${name.split(' ')[0]} ! Complétez votre profil avec une photo.`;
+  if(ONLINE){
+    busy(true);
+    try{
+      const cred=await auth.createUserWithEmailAndPassword(toEmail(ph),pw);const id=cred.user.uid;
+      await db.collection('users').doc(id).set({id,name,quartier:q,bio:'',avatar:null,cover:null,joined:Date.now(),isAdmin:false,blocked:false});
+      db.collection('groups').doc('g1').update({members:FV.arrayUnion(id)}).catch(()=>{});
+      const n1=uid(),n2=uid();
+      db.collection('notifs').doc(n1).set({id:n1,to:id,text:welcome,link:'#/edit-profile',ts:Date.now(),read:false}).catch(()=>{});
+      db.collection('notifs').doc(n2).set({id:n2,to:'ADMIN',text:`Nouvelle inscription : ${name}`,link:'#/admin/users',ts:Date.now(),read:false}).catch(()=>{});
+      location.hash='#/feed';
+    }catch(e){toast(authErr(e));}
+    busy(false);return;
+  }
+  if(S.users.some(u=>normPhone(u.phone)===ph))return toast('Ce numéro a déjà un compte');
+  const u={id:uid(),name,phone:ph,pw:hashPw(pw),quartier:q,bio:'',avatar:null,cover:null,joined:Date.now(),blocked:false};
+  S.users.push(u);
+  const g1=S.groups.find(g=>g.id==='g1');if(g1)g1.members.push(u.id);
+  notify(u.id,welcome,'#/edit-profile');notify('admin',`Nouvelle inscription : ${name}`,'#/admin/users');
+  S.session=u.id;save();location.hash='#/feed';render();
+}
+function logout(){if(ONLINE){auth.signOut();location.hash='#/login';return;}S.session=null;save();location.hash='#/login';render();}
+const adminId = () => ONLINE ? 'ADMIN' : 'admin';
+
+/* ================= COMPOSANTS ================= */
+function avatar(u,sz=40){
+  u=u||{name:'?'};const st=`width:${sz}px;height:${sz}px;font-size:${Math.round(sz*.4)}px`;
+  return u.avatar?`<img class="av" src="${esc(u.avatar)}" style="${st}" alt="">`:`<span class="av" style="${st};background:${color(u.name)}">${esc(initials(u.name))}</span>`;
+}
+function navItem(h,i,l,b){const cur=(location.hash||'#/feed').split('/')[1];const on=h.split('/')[1]===cur;return `<a href="${h}" class="${on?'on':''}"><span class="i">${i}</span>${l}${b?`<span class="badge">${b}</span>`:''}</a>`;}
+function shell(content){
+  const me=ME();
+  const un=S.notifs.filter(n=>(n.to===me.id||(me.isAdmin&&n.to===adminId()))&&!n.read).length;
+  const um=S.messages.filter(m=>m.to===me.id&&!m.read).length;
+  const fr=S.requests.filter(r=>r.to===me.id).length;
+  return `<header class="top"><a href="#/feed" class="logo">${esc(CONFIG.appName)}</a>
+  <div class="top-actions"><button class="ic" onclick="go('#/search')">🔍</button><button class="ic" onclick="go('#/notifs')">🔔${un?`<span class="badge">${un}</span>`:''}</button></div></header>
+  <main>${ONLINE?'':'<div class="demo">Mode démo : les données restent sur cet appareil</div>'}${content}</main>
+  <nav class="bottom">${navItem('#/feed','🏠','Accueil')}${navItem('#/friends','👥','Amis',fr)}${navItem('#/market','🛒','Marché')}${navItem('#/messages','💬','Messages',um)}${navItem('#/menu','☰','Menu')}</nav>`;
+}
+function splash(t){return `<div class="auth"><div class="auth-hero"><div class="auth-logo">${esc(CONFIG.appName)}</div><p class="muted">${t}</p></div>${S&&S.session?'<button class="btn ghost" onclick="logout()">Se déconnecter</button>':''}</div>`;}
+
+let draft={text:'',img:null};
+function composer(gid=''){
+  const me=ME();
+  return `<div class="card composer"><div class="row">${avatar(me)}<textarea id="ptext" placeholder="Quoi de neuf, ${esc(me.name.split(' ')[0])} ?" oninput="draft.text=this.value">${esc(draft.text)}</textarea></div>
+  ${draft.img?`<div class="preview"><img src="${esc(draft.img)}"><button class="x" onclick="draft.img=null;render()">✕</button></div>`:''}
+  <div class="row between"><label class="btn ghost">📷 Photo<input type="file" accept="image/*" hidden onchange="pickImg(this,d=>{draft.img=d;render()})"></label>
+  <button class="btn pri" onclick="publish('${gid}')">Publier</button></div></div>`;
+}
+function publish(gid){
+  const t=(draft.text||'').trim();
+  if(!t&&!draft.img)return toast('Écrivez quelque chose ou ajoutez une photo');
+  S.posts.unshift({id:uid(),author:ME().id,text:t,img:draft.img,ts:Date.now(),likes:[],comments:[],groupId:gid||null,boostedUntil:0,shares:0});
+  draft={text:'',img:null};save();render();toast('Publication partagée ✅');
+}
+function commentHtml(c){const a=U(c.author)||{name:'Utilisateur'};return `<div class="cmt"><a href="#/profile/${c.author}">${avatar(a,32)}</a><div><div class="bub"><a class="name small" href="#/profile/${c.author}">${esc(a.name)}</a><div>${fmtText(c.text)}</div></div><span class="muted small">${ago(c.ts)}</span></div></div>`;}
+function postCard(p,full){
+  const a=U(p.author)||{name:'Utilisateur'};const me=ME();const likes=p.likes||[],comments=p.comments||[];const liked=likes.includes(me.id);
+  const g=p.groupId?S.groups.find(x=>x.id===p.groupId):null;
+  const boosted=p.boostedUntil>Date.now();
+  const cs=full?comments:comments.slice(-2);
+  return `<article class="card post">
+  <div class="post-head"><a href="#/profile/${p.author}">${avatar(a)}</a><div class="grow"><a class="name" href="#/profile/${p.author}">${esc(a.name)}</a>${g?` <span class="muted">▸ <a href="#/group/${g.id}">${esc(g.name)}</a></span>`:''}<div class="muted small">${ago(p.ts)}${boosted?' · <span class="tag acc">🚀 Boosté</span>':''}</div></div>
+  <button class="ic" onclick="postMenu('${p.id}')">⋯</button></div>
+  ${p.text?`<div class="post-text">${fmtText(p.text)}</div>`:''}
+  ${p.img?`<img class="post-img" src="${esc(p.img)}" alt="" loading="lazy">`:''}
+  <div class="post-stats muted small"><span>${likes.length?'❤️ '+likes.length:''}</span><span>${comments.length?`<a href="#/post/${p.id}">${comments.length} commentaire${comments.length>1?'s':''}</a>`:''}${p.shares?' · '+p.shares+' partage'+(p.shares>1?'s':''):''}</span></div>
+  <div class="post-actions"><button class="${liked?'on':''}" onclick="like('${p.id}')">${liked?'❤️':'🤍'} J'aime</button><button onclick="go('#/post/${p.id}')">💬 Commenter</button><button onclick="share('${p.id}')">↗️ Partager</button></div>
+  ${cs.length?`<div>${cs.map(commentHtml).join('')}${!full&&comments.length>2?`<a class="small" href="#/post/${p.id}">Voir les ${comments.length} commentaires</a>`:''}</div>`:''}
+  ${full?`<div class="row comment-box">${avatar(me,32)}<input id="ctext" placeholder="Écrire un commentaire…" onkeydown="if(event.key==='Enter')addComment('${p.id}')"><button class="btn pri sm" onclick="addComment('${p.id}')">Envoyer</button></div>`:''}
+  </article>`;
+}
+function adCard(a){
+  return `<article class="card post ad"><div class="post-head"><span class="av" style="width:40px;height:40px;background:var(--acc)">📣</span><div class="grow"><b>${esc(a.advertiser)}</b><div class="muted small">Sponsorisé</div></div></div>
+  <div class="post-text"><b>${esc(a.title)}</b><br>${fmtText(a.text)}</div>
+  ${a.img?`<img class="post-img" src="${esc(a.img)}" alt="">`:''}
+  ${a.contact?`<div><a class="btn acc full" href="${contactHref(a.contact)}" target="_blank" rel="noopener" onclick="adClick('${a.id}')">${esc(a.cta||'En savoir plus')}</a></div>`:''}</article>`;
+}
+function adClick(id){const a=S.ads.find(x=>x.id===id);if(a){a.clicks=(a.clicks||0)+1;save();}}
+
+/* ================= ACTIONS PUBLICATIONS ================= */
+function like(id){
+  const p=S.posts.find(x=>x.id===id);if(!p)return;const me=ME();p.likes=p.likes||[];
+  const i=p.likes.indexOf(me.id);
+  if(i>=0)p.likes.splice(i,1);else{p.likes.push(me.id);if(p.author!==me.id)notify(p.author,`${me.name} aime votre publication`,'#/post/'+id);}
+  save();render();
+}
+function addComment(id){
+  const i=$('#ctext');const t=i.value.trim();if(!t)return;
+  const p=S.posts.find(x=>x.id===id);const me=ME();p.comments=p.comments||[];
+  p.comments.push({id:uid(),author:me.id,text:t,ts:Date.now()});
+  if(p.author!==me.id)notify(p.author,`${me.name} a commenté votre publication`,'#/post/'+id);
+  save();render();setTimeout(()=>{const c=$('#ctext');c&&c.focus();},50);
+}
+function share(id){
+  const p=S.posts.find(x=>x.id===id);if(!p)return;
+  const txt=`${(U(p.author)||{}).name} sur ${CONFIG.appName} : ${p.text||''}`;
+  p.shares=(p.shares||0)+1;save();render();
+  if(navigator.share)navigator.share({title:CONFIG.appName,text:txt,url:location.origin}).catch(()=>{});
+  else if(navigator.clipboard)navigator.clipboard.writeText(txt).then(()=>toast('Texte copié, collez-le où vous voulez')).catch(()=>{});
+}
+function postMenu(id){
+  const p=S.posts.find(x=>x.id===id);if(!p)return;const me=ME();const mine=p.author===me.id;
+  modal(`<h3>Options</h3>
+  ${mine?`<button class="opt" onclick="closeModal();boostModal('${id}')">🚀 Booster cette publication</button>`:''}
+  ${mine||me.isAdmin?`<button class="opt" onclick="closeModal();deletePost('${id}')">🗑️ Supprimer</button>`:''}
+  ${!mine?`<button class="opt" onclick="closeModal();reportModal('${id}')">🚩 Signaler</button>`:''}
+  <button class="opt" onclick="closeModal()">Annuler</button>`);
+}
+function deletePost(id){
+  if(!confirm('Supprimer cette publication ?'))return;
+  S.posts=S.posts.filter(p=>p.id!==id);S.reports=S.reports.filter(r=>r.postId!==id);save();
+  if(location.hash==='#/post/'+id)go('#/feed');else render();toast('Publication supprimée');
+}
+function reportModal(id){
+  const R=['Contenu choquant','Arnaque','Fausse information','Harcèlement','Autre'];
+  modal(`<h3>🚩 Signaler cette publication</h3>${R.map((r,i)=>`<label class="opt"><input type="radio" name="rr" value="${r}" ${i===0?'checked':''} style="width:auto;margin-right:8px">${r}</label>`).join('')}
+  <button class="btn red full" onclick="sendReport('${id}')">Envoyer le signalement</button>`);
+}
+function sendReport(id){
+  const r=document.querySelector('input[name=rr]:checked').value;
+  S.reports.unshift({id:uid(),postId:id,user:ME().id,reason:r,ts:Date.now()});
+  notify(adminId(),`Publication signalée : ${r}`,'#/admin/reports');save();closeModal();toast("Merci, l'administrateur va vérifier.");
+}
+
+/* ================= BOOSTS (monétisation) ================= */
+function boostModal(pid){
+  modal(`<h3>🚀 Booster ma publication</h3><p class="muted small">Votre publication s'affiche en tête du fil d'actualité de tous les utilisateurs pendant la durée choisie.</p>
+  <div class="offers">${CONFIG.boostOffers.map((o,i)=>`<label class="offer"><input type="radio" name="bo" value="${i}" ${i===0?'checked':''}><b>${o.days} jour${o.days>1?'s':''}</b><span>${fmtF(o.price)}</span></label>`).join('')}</div>
+  <div class="pay"><b>Comment payer :</b><ol><li>Envoyez le montant par Orange Money, MTN, Moov ou Wave au <b>${esc(CONFIG.adminMomo)}</b>.</li><li>Saisissez ci-dessous la référence de la transaction.</li><li>Le boost s'active dès que l'administrateur confirme la réception.</li></ol></div>
+  <input id="bref" placeholder="Référence de la transaction">
+  <button class="btn pri full" onclick="requestBoost('${pid}')">Envoyer ma demande</button>
+  <button class="btn ghost full" onclick="closeModal()">Annuler</button>`);
+}
+function requestBoost(pid){
+  const o=CONFIG.boostOffers[+document.querySelector('input[name=bo]:checked').value];
+  const ref=$('#bref').value.trim();if(!ref)return toast('Indiquez la référence du paiement');
+  const code='BST-'+Math.random().toString(36).slice(2,7).toUpperCase();
+  S.boosts.unshift({id:uid(),postId:pid,user:ME().id,days:o.days,amount:o.price,ref,code,status:'pending',ts:Date.now()});
+  notify(adminId(),`Demande de boost ${code} (${fmtF(o.price)}) de ${ME().name}`,'#/admin/boosts');
+  save();closeModal();toast(`Demande envoyée. Votre code : ${code}`);
+}
+function myBoostsModal(){
+  const bs=S.boosts.filter(b=>b.user===ME().id);
+  modal(`<h3>🚀 Mes boosts</h3>${bs.map(b=>`<div class="list-item"><div class="grow"><b>${esc(b.code)}</b> · ${b.days} j · ${fmtF(b.amount)}<div class="muted small">${ago(b.ts)} · réf. ${esc(b.ref)}</div></div>${statusTag(b.status)}</div>`).join('')||empty("Vous n'avez encore boosté aucune publication.")}<button class="btn full" onclick="closeModal()">Fermer</button>`);
+}
+const statusTag = s => s==='ok'?'<span class="tag ok">Activé</span>':s==='refused'?'<span class="tag no">Refusé</span>':'<span class="tag wait">En attente</span>';
+function adsInfoModal(){
+  modal(`<h3>📣 Faire de la publicité</h3><p>Faites connaître votre commerce, votre école ou votre événement à toute la ville.</p>
+  <div class="pay"><b>Deux options :</b><ol><li><b>Booster</b> une de vos publications (dès ${fmtF(CONFIG.boostOffers[0].price)}) via le menu ⋯ de la publication.</li><li><b>Campagne sponsorisée</b> : une annonce avec image et bouton de contact, diffusée dans le fil de tous les utilisateurs. Contactez l'administrateur.</li></ol></div>
+  <a class="btn acc full" href="https://wa.me/${esc(CONFIG.adminWhatsApp)}" target="_blank" rel="noopener">Contacter l'administrateur sur WhatsApp</a>
+  <button class="btn ghost full" onclick="closeModal()">Fermer</button>`);
+}
+
+/* ================= VUES ================= */
+const seenAds=new Set();
+function feedView(){
+  const now=Date.now();
+  const posts=S.posts.filter(p=>!p.groupId&&visibleUser(p.author));
+  const ordered=[...posts.filter(p=>p.boostedUntil>now),...posts.filter(p=>!(p.boostedUntil>now))];
+  const ads=S.ads.filter(a=>a.active);const out=[];let ai=0,seen=false;
+  const show=a=>{if(!seenAds.has(a.id)){seenAds.add(a.id);a.views=(a.views||0)+1;seen=true;}out.push(adCard(a));};
+  ordered.forEach((p,i)=>{out.push(postCard(p));if((i+1)%4===0&&ads.length)show(ads[ai++%ads.length]);});
+  if(ordered.length<4&&ads.length)show(ads[0]);
+  if(seen)save();
+  return composer()+(out.join('')||empty('Aucune publication pour le moment. Soyez le premier !'));
+}
+function postView(id){
+  const p=S.posts.find(x=>x.id===id);
+  return `<a class="back" href="javascript:history.back()">← Retour</a>`+(p?postCard(p,true):empty('Publication introuvable'));
+}
+function friendStatus(a,b){
+  if(S.friends.some(f=>(f.a===a&&f.b===b)||(f.a===b&&f.b===a)))return 'friends';
+  if(S.requests.some(r=>r.from===a&&r.to===b))return 'sent';
+  if(S.requests.some(r=>r.from===b&&r.to===a))return 'received';
+  return 'none';
+}
+function friendsOf(id){return S.friends.filter(f=>f.a===id||f.b===id).map(f=>U(f.a===id?f.b:f.a)).filter(u=>u&&!u.blocked);}
+function addFriend(id){
+  const me=ME();if(friendStatus(me.id,id)!=='none')return;
+  S.requests.push({id:uid(),from:me.id,to:id,ts:Date.now()});
+  notify(id,`${me.name} vous a envoyé une demande d'ami`,'#/friends');save();render();toast('Demande envoyée');
+  const u=U(id);
+  if(!ONLINE&&u&&u.demo)setTimeout(()=>{S.requests=S.requests.filter(r=>!(r.from===me.id&&r.to===id));if(friendStatus(me.id,id)!=='friends')S.friends.push({id:uid(),a:me.id,b:id});notify(me.id,`${u.name} a accepté votre demande d'ami`,'#/profile/'+id);save();render();},2500);
+}
+function acceptFriend(id){const me=ME();S.requests=S.requests.filter(r=>!(r.from===id&&r.to===me.id));S.friends.push({id:uid(),a:me.id,b:id});notify(id,`${me.name} a accepté votre demande d'ami`,'#/profile/'+me.id);save();render();}
+function declineFriend(id){const me=ME();S.requests=S.requests.filter(r=>!(r.from===id&&r.to===me.id));save();render();}
+function unfriend(id){if(!confirm('Retirer cet ami ?'))return;const me=ME().id;S.friends=S.friends.filter(f=>!((f.a===id&&f.b===me)||(f.a===me&&f.b===id)));save();render();}
+
+function profileView(id){
+  const u=U(id);if(!u||u.blocked)return empty('Profil introuvable');
+  const me=ME();const isMe=u.id===me.id;const fr=friendsOf(u.id);
+  const posts=S.posts.filter(p=>p.author===u.id&&!p.groupId);
+  let action;
+  if(isMe)action=`<button class="btn" onclick="go('#/edit-profile')">✏️ Modifier le profil</button>`;
+  else{const st=friendStatus(me.id,u.id);
+    action=(st==='friends'?`<button class="btn" onclick="unfriend('${u.id}')">✔ Amis</button>`:st==='sent'?`<button class="btn" disabled>Demande envoyée</button>`:st==='received'?`<button class="btn pri" onclick="acceptFriend('${u.id}')">Accepter</button>`:`<button class="btn pri" onclick="addFriend('${u.id}')">➕ Ajouter</button>`)+` <button class="btn" onclick="go('#/chat/${u.id}')">💬 Message</button>`;}
+  return `<div class="card profile"><div class="cover" ${u.cover?`style="background-image:url('${esc(u.cover)}')"`:''}></div><div class="pav">${avatar(u,96)}</div>
+  <h2>${esc(u.name)}${u.isAdmin?' ✅':''}</h2>${u.bio?`<p>${esc(u.bio)}</p>`:''}
+  <p class="muted small">📍 ${esc(u.quartier||'Boundiali')} · ${fr.length} ami${fr.length>1?'s':''} · Membre depuis ${new Date(u.joined).toLocaleDateString('fr-FR',{month:'long',year:'numeric'})}</p>
+  <div class="row center" style="margin-top:10px">${action}</div></div>
+  ${fr.length?`<div class="card"><h3>Amis</h3><div class="grid-friends">${fr.slice(0,6).map(f=>`<a href="#/profile/${f.id}" class="fcell">${avatar(f,56)}<span>${esc(f.name.split(' ')[0])}</span></a>`).join('')}</div></div>`:''}
+  ${isMe?composer():''}
+  ${posts.map(p=>postCard(p)).join('')||empty('Aucune publication')}`;
+}
+function editProfileView(){
+  const me=ME();
+  return `<a class="back" href="#/profile/${me.id}">← Mon profil</a><div class="card"><h3>Modifier mon profil</h3>
+  <div class="row" style="margin-bottom:10px"><span id="avprev">${avatar(me,72)}</span><label class="btn">📷 Photo de profil<input type="file" accept="image/*" hidden onchange="pickImg(this,d=>{ME().avatar=d;save();$('#avprev').innerHTML=avatar(ME(),72)},300)"></label></div>
+  <label class="btn full" style="margin:0 0 8px">🖼️ Photo de couverture<input type="file" accept="image/*" hidden onchange="pickImg(this,d=>{ME().cover=d;save();setPrev('cvprev',d)},800)"></label>
+  <img id="cvprev" class="imgprev" alt="">
+  <input id="ename" value="${esc(me.name)}" placeholder="Nom et prénoms">
+  <input id="eq" value="${esc(me.quartier)}" placeholder="Quartier">
+  <textarea id="ebio" class="big" placeholder="Parlez un peu de vous…">${esc(me.bio)}</textarea>
+  <button class="btn pri full" onclick="saveProfile()">Enregistrer</button></div>`;
+}
+function saveProfile(){const me=ME();const n=$('#ename').value.trim();if(n.length<3)return toast('Nom trop court');me.name=n;me.quartier=$('#eq').value.trim()||'Boundiali';me.bio=$('#ebio').value.trim();save();toast('Profil mis à jour ✅');go('#/profile/'+me.id);}
+
+function friendsView(){
+  const me=ME().id;
+  const req=S.requests.filter(r=>r.to===me).map(r=>U(r.from)).filter(u=>u&&!u.blocked);
+  const fr=friendsOf(me);
+  const sug=S.users.filter(u=>u.id!==me&&!u.blocked&&friendStatus(me,u.id)==='none').slice(0,30);
+  return `<h2 style="margin-bottom:8px">👥 Amis</h2>
+  ${req.length?`<div class="card"><h3>Demandes d'amis (${req.length})</h3>${req.map(u=>`<div class="list-item"><a href="#/profile/${u.id}">${avatar(u,52)}</a><div class="grow"><b>${esc(u.name)}</b><div class="row" style="margin-top:6px"><button class="btn pri sm" onclick="acceptFriend('${u.id}')">Confirmer</button><button class="btn sm" onclick="declineFriend('${u.id}')">Supprimer</button></div></div></div>`).join('')}</div>`:''}
+  ${sug.length?`<div class="card"><h3>Vous connaissez peut-être</h3>${sug.map(u=>`<div class="list-item"><a href="#/profile/${u.id}">${avatar(u,52)}</a><div class="grow"><b>${esc(u.name)}</b><div class="muted small">📍 ${esc(u.quartier)}</div></div><button class="btn pri sm" onclick="addFriend('${u.id}')">➕ Ajouter</button></div>`).join('')}</div>`:''}
+  <div class="card"><h3>Mes amis (${fr.length})</h3>${fr.map(u=>`<a class="list-item" href="#/profile/${u.id}">${avatar(u,48)}<div class="grow"><b>${esc(u.name)}</b></div><button class="btn sm" onclick="event.preventDefault();go('#/chat/${u.id}')">💬</button></a>`).join('')||empty("Vous n'avez pas encore d'amis. Ajoutez des personnes ci-dessus !")}</div>`;
+}
+
+function groupsView(){
+  const me=ME().id;
+  return `<div class="row between" style="margin-bottom:8px"><h2>👥 Groupes</h2><button class="btn pri sm" onclick="newGroupModal()">+ Créer</button></div>
+  <div class="card">${S.groups.map(g=>{const m=(g.members||[]).includes(me);return `<div class="list-item"><a href="#/group/${g.id}" class="row grow" style="color:inherit"><span class="av" style="width:48px;height:48px;border-radius:12px;background:${color(g.name)};font-size:22px">${esc(g.icon||'👥')}</span><div class="grow"><b>${esc(g.name)}</b><div class="muted small">${(g.members||[]).length} membre${(g.members||[]).length>1?'s':''}</div></div></a><button class="btn sm ${m?'':'pri'}" onclick="toggleGroup('${g.id}')">${m?'Membre ✔':'Rejoindre'}</button></div>`;}).join('')||empty('Aucun groupe pour le moment.')}</div>`;
+}
+function groupView(id){
+  const g=S.groups.find(x=>x.id===id);if(!g)return empty('Groupe introuvable');
+  const me=ME();const members=g.members||[];const m=members.includes(me.id);
+  const posts=S.posts.filter(p=>p.groupId===id&&visibleUser(p.author));
+  return `<a class="back" href="#/groups">← Groupes</a>
+  <div class="card profile"><div class="cover" style="height:110px;background:${color(g.name)};display:flex;align-items:center;justify-content:center;font-size:50px">${esc(g.icon||'👥')}</div>
+  <h2 style="margin-top:10px">${esc(g.name)}</h2><p class="muted">${esc(g.desc)}</p><p class="muted small">${members.length} membre${members.length>1?'s':''}</p>
+  <div class="row center" style="margin-top:8px"><button class="btn ${m?'':'pri'}" onclick="toggleGroup('${g.id}')">${m?'✔ Membre · Quitter':'Rejoindre le groupe'}</button>${me.isAdmin?` <button class="btn red sm" onclick="deleteGroup('${g.id}')">Supprimer</button>`:''}</div></div>
+  ${m?composer(id):'<div class="card muted center">Rejoignez le groupe pour publier.</div>'}
+  ${posts.map(p=>postCard(p)).join('')||empty('Aucune publication dans ce groupe.')}`;
+}
+function toggleGroup(id){const g=S.groups.find(x=>x.id===id);const me=ME().id;g.members=g.members||[];const i=g.members.indexOf(me);if(i>=0)g.members.splice(i,1);else g.members.push(me);save();render();}
+function deleteGroup(id){if(!confirm('Supprimer ce groupe et ses publications ?'))return;S.groups=S.groups.filter(g=>g.id!==id);S.posts=S.posts.filter(p=>p.groupId!==id);save();go('#/groups');}
+function newGroupModal(){
+  modal(`<h3>Créer un groupe</h3><input id="gname" placeholder="Nom du groupe"><input id="gicon" placeholder="Emoji du groupe (ex. 🎵)" maxlength="4"><textarea id="gdesc" class="big" placeholder="Description"></textarea>
+  <button class="btn pri full" onclick="createGroup()">Créer</button><button class="btn ghost full" onclick="closeModal()">Annuler</button>`);
+}
+function createGroup(){const n=$('#gname').value.trim();if(n.length<3)return toast('Nom trop court');const g={id:uid(),name:n,icon:$('#gicon').value.trim()||'👥',desc:$('#gdesc').value.trim(),members:[ME().id],owner:ME().id};S.groups.push(g);save();closeModal();go('#/group/'+g.id);}
+
+let marketCat='Tout';const CATS=['Tout','Véhicules','Électronique','Mode','Maison','Alimentation','Immobilier','Services','Autres'];
+function marketView(){
+  const items=S.listings.filter(l=>(marketCat==='Tout'||l.cat===marketCat)&&visibleUser(l.seller));
+  return `<div class="row between" style="margin-bottom:8px"><h2>🛒 Marché</h2><button class="btn acc" onclick="sellModal()">+ Vendre</button></div>
+  <div class="chips">${CATS.map(c=>`<button class="chip ${c===marketCat?'on':''}" onclick="marketCat='${c}';render()">${c}</button>`).join('')}</div>
+  ${items.length?`<div class="market">${items.map(l=>`<div class="mitem" onclick="listingModal('${l.id}')"><div class="ph" ${l.img?`style="background-image:url('${esc(l.img)}')"`:''}>${l.img?'':'📦'}</div><div class="in"><span class="price">${priceTxt(l.price)}</span><b>${esc(l.title)}</b><span class="muted small">${l.sold?'<span class="tag no">Vendu</span> ':''}${ago(l.ts)}</span></div></div>`).join('')}</div>`:empty('Aucune annonce dans cette catégorie.')}`;
+}
+let sellImg=null;
+function sellModal(){
+  sellImg=null;
+  modal(`<h3>Vendre un article</h3>
+  <label class="btn full" style="margin:0 0 8px">📷 Ajouter une photo<input type="file" accept="image/*" hidden onchange="pickImg(this,d=>{sellImg=d;setPrev('sprev',d)})"></label>
+  <img id="sprev" class="imgprev" alt="">
+  <input id="stitle" placeholder="Titre (ex. Téléviseur 32 pouces)">
+  <input id="sprice" type="number" inputmode="numeric" placeholder="Prix en FCFA (laisser vide = à discuter)">
+  <select id="scat">${CATS.slice(1).map(c=>`<option>${c}</option>`).join('')}</select>
+  <textarea id="sdesc" class="big" placeholder="Description, état, lieu…"></textarea>
+  <button class="btn pri full" onclick="postListing()">Publier l'annonce</button><button class="btn ghost full" onclick="closeModal()">Annuler</button>`);
+}
+function postListing(){
+  const t=$('#stitle').value.trim();if(t.length<3)return toast('Ajoutez un titre');
+  S.listings.unshift({id:uid(),seller:ME().id,title:t,price:Math.max(0,+$('#sprice').value||0),cat:$('#scat').value,desc:$('#sdesc').value.trim(),img:sellImg,ts:Date.now(),sold:false});
+  save();closeModal();render();toast('Annonce publiée ✅');
+}
+let chatPrefill='';
+function listingModal(id){
+  const l=S.listings.find(x=>x.id===id);if(!l)return;const s=U(l.seller)||{name:'Vendeur'};const mine=l.seller===ME().id;
+  modal(`${l.img?`<img src="${esc(l.img)}" style="width:100%;border-radius:10px;max-height:320px;object-fit:cover">`:''}
+  <h3 style="margin-top:8px">${esc(l.title)}</h3><div class="price" style="font-size:20px">${priceTxt(l.price)}</div>
+  <p class="muted small">${esc(l.cat)} · ${ago(l.ts)} ${l.sold?'· <span class="tag no">Vendu</span>':''}</p>
+  ${l.desc?`<p style="margin:8px 0">${fmtText(l.desc)}</p>`:''}
+  <a class="list-item" href="#/profile/${l.seller}" onclick="closeModal()">${avatar(s,40)}<b>${esc(s.name)}</b></a>
+  ${mine?`<button class="btn full" onclick="toggleSold('${id}')">${l.sold?'Remettre en vente':'Marquer comme vendu'}</button><button class="btn red full" onclick="deleteListing('${id}')">Supprimer l'annonce</button>`
+  :`<button class="btn pri full" onclick="contactSeller('${id}')">💬 Contacter le vendeur</button>`}
+  ${!mine&&ME().isAdmin?`<button class="btn red full" onclick="deleteListing('${id}')">Supprimer (admin)</button>`:''}
+  <button class="btn ghost full" onclick="closeModal()">Fermer</button>`);
+}
+function contactSeller(id){const l=S.listings.find(x=>x.id===id);chatPrefill=`Bonjour, votre article « ${l.title} » est-il toujours disponible ?`;closeModal();go('#/chat/'+l.seller);}
+function toggleSold(id){const l=S.listings.find(x=>x.id===id);l.sold=!l.sold;save();closeModal();render();}
+function deleteListing(id){if(!confirm('Supprimer cette annonce ?'))return;S.listings=S.listings.filter(l=>l.id!==id);save();closeModal();render();}
+
+const REPLIES=["Bonjour ! Comment tu vas ? 😊","D'accord, pas de souci.","Merci beaucoup 🙏","Ok, je regarde et je te reviens.","Bonne soirée à toi !","Oui c'est toujours disponible 👍"];
+function convs(){const me=ME().id;const map={};S.messages.forEach(m=>{if(m.from!==me&&m.to!==me)return;const o=m.from===me?m.to:m.from;if(!map[o]||map[o].ts<m.ts)map[o]=m;});return Object.entries(map).sort((a,b)=>b[1].ts-a[1].ts);}
+function messagesView(){
+  const me=ME().id;const cs=convs();
+  return `<div class="row between" style="margin-bottom:8px"><h2>💬 Messages</h2><button class="btn pri sm" onclick="newMsgModal()">✏️ Nouveau</button></div>
+  <div class="card">${cs.length?cs.map(([o,m])=>{const u=U(o);if(!u)return '';const n=S.messages.filter(x=>x.from===o&&x.to===me&&!x.read).length;
+    return `<a class="list-item" href="#/chat/${o}">${avatar(u,48)}<div class="grow"><b>${esc(u.name)}</b><div class="muted small" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${m.from===me?'Vous : ':''}${esc(m.text)}</div></div><div class="small muted" style="text-align:right">${ago(m.ts)}${n?`<br><span class="tag acc">${n}</span>`:''}</div></a>`;}).join(''):empty('Aucune conversation. Écrivez à vos amis !')}</div>`;
+}
+function newMsgModal(){
+  const me=ME().id;const fr=friendsOf(me);const others=S.users.filter(u=>u.id!==me&&!u.blocked&&!fr.includes(u));
+  modal(`<h3>Nouveau message</h3>${[...fr,...others].map(u=>`<a class="list-item" href="#/chat/${u.id}" onclick="closeModal()">${avatar(u,40)}<b>${esc(u.name)}</b></a>`).join('')}<button class="btn ghost full" onclick="closeModal()">Annuler</button>`);
+}
+function chatMsgs(id){
+  const me=ME().id;const ms=S.messages.filter(m=>(m.from===me&&m.to===id)||(m.from===id&&m.to===me));
+  return ms.map(m=>`<div class="msg ${m.from===me?'me':''}">${fmtText(m.text)}<span class="t">${ago(m.ts)}</span></div>`).join('')||'<div class="empty">Dites bonjour 👋</div>';
+}
+function markRead(id){const me=ME().id;let ch=false;S.messages.forEach(m=>{if(m.from===id&&m.to===me&&!m.read){m.read=true;ch=true;}});if(ch)save();}
+function chatView(id){
+  const u=U(id),me=ME().id;if(!u||id===me||u.blocked)return empty('Conversation introuvable');
+  markRead(id);
+  const pre=chatPrefill;chatPrefill='';
+  return `<div class="chat"><div class="card row" style="margin-bottom:0"><a href="#/messages" style="font-size:20px">←</a><a href="#/profile/${id}" class="row grow" style="color:inherit">${avatar(u,36)}<b>${esc(u.name)}</b></a></div>
+  <div class="chatbox" id="chatbox">${chatMsgs(id)}</div>
+  <div class="send"><input id="mtext" placeholder="Votre message…" value="${esc(pre)}" onkeydown="if(event.key==='Enter')sendMsg('${id}')"><button class="btn pri" onclick="sendMsg('${id}')">➤</button></div></div>`;
+}
+function sendMsg(id){
+  const t=$('#mtext').value.trim();if(!t)return;const me=ME().id;
+  S.messages.push({id:uid(),from:me,to:id,text:t,ts:Date.now(),read:false});save();render();
+  setTimeout(()=>{const x=$('#mtext');x&&x.focus();},50);
+  const u=U(id);
+  if(!ONLINE&&u&&u.demo)setTimeout(()=>{S.messages.push({id:uid(),from:id,to:me,text:REPLIES[Math.floor(Math.random()*REPLIES.length)],ts:Date.now(),read:location.hash==='#/chat/'+id});save();render();},1800);
+}
+
+function notifsView(){
+  const me=ME();const ns=S.notifs.filter(n=>n.to===me.id||(me.isAdmin&&n.to===adminId()));
+  const html=`<h2 style="margin-bottom:8px">🔔 Notifications</h2><div class="card">${ns.map(n=>`<div class="notif ${n.read?'':'unread'}" onclick="go('${esc(n.link||'#/feed')}')"><span style="font-size:22px">🔔</span><div class="grow">${esc(n.text)}<div class="muted small">${ago(n.ts)}</div></div></div>`).join('')||empty('Aucune notification')}</div>`;
+  let ch=false;ns.forEach(n=>{if(!n.read){n.read=true;ch=true;}});if(ch)save();return html;
+}
+
+let searchQ='';
+function searchResults(q){
+  q=q.trim().toLowerCase();if(q.length<2)return '<div class="empty">Tapez au moins 2 lettres</div>';
+  const us=S.users.filter(u=>!u.blocked&&(u.name||'').toLowerCase().includes(q));
+  const gs=S.groups.filter(g=>(g.name||'').toLowerCase().includes(q));
+  const ls=S.listings.filter(l=>(l.title||'').toLowerCase().includes(q));
+  const ps=S.posts.filter(p=>visibleUser(p.author)&&(p.text||'').toLowerCase().includes(q)).slice(0,10);
+  let h='';
+  if(us.length)h+=`<div class="card"><h3>Personnes</h3>${us.map(u=>`<a class="list-item" href="#/profile/${u.id}">${avatar(u,40)}<b>${esc(u.name)}</b></a>`).join('')}</div>`;
+  if(gs.length)h+=`<div class="card"><h3>Groupes</h3>${gs.map(g=>`<a class="list-item" href="#/group/${g.id}"><span style="font-size:24px">${esc(g.icon)}</span><b>${esc(g.name)}</b></a>`).join('')}</div>`;
+  if(ls.length)h+=`<div class="card"><h3>Marché</h3>${ls.map(l=>`<div class="list-item" onclick="listingModal('${l.id}')" style="cursor:pointer"><span style="font-size:24px">📦</span><div class="grow"><b>${esc(l.title)}</b><div class="price small">${priceTxt(l.price)}</div></div></div>`).join('')}</div>`;
+  if(ps.length)h+=`<h3 style="margin:6px 4px">Publications</h3>`+ps.map(p=>postCard(p)).join('');
+  return h||'<div class="empty">Aucun résultat</div>';
+}
+function searchView(){
+  setTimeout(()=>{const i=$('#sq');if(i){i.focus();i.setSelectionRange(i.value.length,i.value.length);}},50);
+  return `<input id="sq" placeholder="Rechercher des personnes, groupes, articles…" value="${esc(searchQ)}" oninput="searchQ=this.value;$('#sres').innerHTML=searchResults(this.value)" style="border-radius:20px">
+  <div id="sres">${searchResults(searchQ)}</div>`;
+}
+
+function menuView(){
+  const me=ME();const pend=S.boosts.filter(b=>b.status==='pending').length+S.reports.length;
+  return `<a class="card row" href="#/profile/${me.id}" style="color:inherit">${avatar(me,56)}<div><b style="font-size:17px">${esc(me.name)}</b><div class="muted small">Voir mon profil</div></div></a>
+  <div class="card menu">
+    <a href="#/groups"><span>👥</span>Groupes</a>
+    <a href="#/market"><span>🛒</span>Marché</a>
+    <a href="#/friends"><span>🤝</span>Amis</a>
+    <a href="javascript:myBoostsModal()"><span>🚀</span>Mes boosts</a>
+    <a href="javascript:adsInfoModal()"><span>📣</span>Faire de la publicité</a>
+    <a href="#/edit-profile"><span>⚙️</span>Paramètres du profil</a>
+    ${me.isAdmin?`<a href="#/admin"><span>🛡️</span>Espace administrateur ${pend?`<span class="tag acc">${pend}</span>`:''}</a>`:''}
+  </div>
+  ${installBtn()}
+  <button class="btn full" onclick="logout()">🚪 Se déconnecter</button>
+  <p class="muted small center" style="margin-top:14px">${esc(CONFIG.appName)} · ${esc(CONFIG.slogan)}</p>`;
+}
+
+/* ================= ADMINISTRATION ================= */
+let adImg=null;
+function adminView(tab){
+  const T=[['stats','📊 Statistiques'],['users','👤 Utilisateurs'],['boosts','🚀 Boosts'],['ads','📣 Publicités'],['reports','🚩 Signalements']];
+  const pb=S.boosts.filter(b=>b.status==='pending').length;
+  let body='';
+  if(tab==='stats'){
+    const rev=S.boosts.filter(b=>b.status==='ok').reduce((s,b)=>s+b.amount,0);
+    const wk=Date.now()-7*86400e3;
+    const st=[['Utilisateurs',S.users.length],['Nouveaux (7 j)',S.users.filter(u=>u.joined>wk).length],['Publications',S.posts.length],['Groupes',S.groups.length],['Annonces Marché',S.listings.length],['Amitiés',S.friends.length],['Boosts en attente',pb],['Revenus boosts',fmtF(rev)],['Pubs actives',S.ads.filter(a=>a.active).length],['Vues des pubs',S.ads.reduce((s,a)=>s+(a.views||0),0)]];
+    body=`<div class="stats">${st.map(s=>`<div class="stat"><b>${s[1]}</b><span class="muted small">${s[0]}</span></div>`).join('')}</div>
+    ${ONLINE?'':`<div class="card"><h3>Données</h3><p class="muted small">Mode démo : les données sont enregistrées sur cet appareil.</p><button class="btn red full" onclick="resetDemo()">Réinitialiser toutes les données</button></div>`}`;
+  }
+  if(tab==='users'){
+    body=`<div class="card">${S.users.map(u=>`<div class="list-item"><a href="#/profile/${u.id}">${avatar(u,44)}</a><div class="grow"><b>${esc(u.name)}</b>${u.blocked?' <span class="tag no">Suspendu</span>':''}<div class="muted small">📍 ${esc(u.quartier||'')} · ${S.posts.filter(p=>p.author===u.id).length} publ. · inscrit ${ago(u.joined)}</div></div>${u.isAdmin?'<span class="tag ok">Admin</span>':`<button class="btn sm ${u.blocked?'pri':'red'}" onclick="toggleBlock('${u.id}')">${u.blocked?'Réactiver':'Suspendre'}</button>`}</div>`).join('')}</div>`;
+  }
+  if(tab==='boosts'){
+    const bs=[...S.boosts].sort((a,b)=>(a.status==='pending'?0:1)-(b.status==='pending'?0:1)||b.ts-a.ts);
+    body=`<div class="card">${bs.map(b=>{const u=U(b.user)||{name:'?'};const p=S.posts.find(x=>x.id===b.postId);return `<div class="list-item" style="align-items:flex-start"><div class="grow"><b>${esc(b.code)}</b> ${statusTag(b.status)}<div class="small">${esc(u.name)} · ${b.days} j · <b>${fmtF(b.amount)}</b></div><div class="muted small">Réf. paiement : ${esc(b.ref)} · ${ago(b.ts)}</div>${p?`<a class="small" href="#/post/${p.id}">« ${esc((p.text||'Photo').slice(0,60))} »</a>`:'<span class="muted small">Publication supprimée</span>'}
+    ${b.status==='pending'?`<div class="row" style="margin-top:6px"><button class="btn pri sm" onclick="validateBoost('${b.id}',true)">✔ Paiement reçu</button><button class="btn red sm" onclick="validateBoost('${b.id}',false)">Refuser</button></div>`:''}</div></div>`;}).join('')||empty('Aucune demande de boost.')}</div>`;
+  }
+  if(tab==='ads'){
+    body=`<div class="card"><h3>Nouvelle campagne sponsorisée</h3>
+    <input id="aadv" placeholder="Nom de l'annonceur"><input id="atitle" placeholder="Titre de l'annonce"><textarea id="atext" class="big" placeholder="Texte de l'annonce"></textarea>
+    <input id="acontact" placeholder="WhatsApp (2250700000000) ou lien https://"><input id="acta" placeholder="Texte du bouton (ex. Commander)">
+    <label class="btn full" style="margin:0 0 8px">📷 Image de la pub<input type="file" accept="image/*" hidden onchange="pickImg(this,d=>{adImg=d;setPrev('aprev',d)})"></label><img id="aprev" class="imgprev" alt="">
+    <button class="btn acc full" onclick="createAd()">Lancer la campagne</button></div>
+    <div class="card"><h3>Campagnes</h3>${S.ads.map(a=>`<div class="list-item"><div class="grow"><b>${esc(a.title)}</b> ${a.active?'<span class="tag ok">Active</span>':'<span class="tag wait">En pause</span>'}<div class="muted small">${esc(a.advertiser)} · ${a.views||0} vues · ${a.clicks||0} clics</div></div><button class="btn sm" onclick="toggleAd('${a.id}')">${a.active?'Pause':'Activer'}</button><button class="btn red sm" onclick="deleteAd('${a.id}')">🗑️</button></div>`).join('')||empty('Aucune campagne')}</div>`;
+  }
+  if(tab==='reports'){
+    body=`<div class="card">${S.reports.map(r=>{const p=S.posts.find(x=>x.id===r.postId);const u=U(r.user)||{name:'?'};const a=p?U(p.author):null;return `<div class="list-item" style="align-items:flex-start"><div class="grow"><span class="tag no">${esc(r.reason)}</span> <span class="muted small">par ${esc(u.name)} · ${ago(r.ts)}</span>${p?`<div class="small" style="margin-top:4px"><b>${esc(a?a.name:'?')}</b> : ${esc((p.text||'Photo').slice(0,120))}</div>`:''}<div class="row" style="margin-top:6px">${p?`<button class="btn red sm" onclick="deletePost('${p.id}')">Supprimer la publication</button><a class="btn sm" href="#/post/${p.id}">Voir</a>`:''}<button class="btn sm" onclick="dismissReport('${r.id}')">Ignorer</button></div></div></div>`;}).join('')||empty('Aucun signalement 👍')}</div>`;
+  }
+  return `<h2 style="margin-bottom:8px">🛡️ Administration</h2><div class="tabs">${T.map(t=>`<button class="chip ${t[0]===tab?'on':''}" onclick="go('#/admin/${t[0]}')">${t[1]}${t[0]==='boosts'&&pb?` (${pb})`:''}${t[0]==='reports'&&S.reports.length?` (${S.reports.length})`:''}</button>`).join('')}</div>${body}`;
+}
+function toggleBlock(id){const u=U(id);if(!u||u.isAdmin)return;if(!u.blocked&&!confirm(`Suspendre ${u.name} ?`))return;u.blocked=!u.blocked;save();render();}
+function validateBoost(id,ok){
+  const b=S.boosts.find(x=>x.id===id);if(!b)return;b.status=ok?'ok':'refused';b.decidedAt=Date.now();
+  if(ok){const p=S.posts.find(x=>x.id===b.postId);if(p)p.boostedUntil=Math.max(Date.now(),p.boostedUntil||0)+b.days*86400e3;notify(b.user,`Votre boost ${b.code} est activé pour ${b.days} jour(s) 🚀`,'#/post/'+b.postId);}
+  else notify(b.user,`Votre demande de boost ${b.code} a été refusée. Contactez l'administrateur.`,'#/menu');
+  save();render();toast(ok?'Boost activé':'Demande refusée');
+}
+function createAd(){
+  const adv=$('#aadv').value.trim(),title=$('#atitle').value.trim(),text=$('#atext').value.trim();
+  if(!adv||!title)return toast("Indiquez l'annonceur et le titre");
+  S.ads.unshift({id:uid(),advertiser:adv,title,text,img:adImg,contact:$('#acontact').value.trim(),cta:$('#acta').value.trim()||'En savoir plus',active:true,views:0,clicks:0,ts:Date.now()});
+  adImg=null;save();render();toast('Campagne lancée 📣');
+}
+function toggleAd(id){const a=S.ads.find(x=>x.id===id);a.active=!a.active;save();render();}
+function deleteAd(id){if(!confirm('Supprimer cette campagne ?'))return;S.ads=S.ads.filter(a=>a.id!==id);save();render();}
+function dismissReport(id){S.reports=S.reports.filter(r=>r.id!==id);save();render();}
+function resetDemo(){if(!confirm('Effacer toutes les données et revenir à la démo ?'))return;try{localStorage.removeItem(CONFIG.storageKey);}catch(e){}location.hash='#/login';location.reload();}
+
+/* ================= INSTALLATION PWA ================= */
+let installEvt=null;
+const isStandalone=()=>window.matchMedia&&matchMedia('(display-mode: standalone)').matches||navigator.standalone===true;
+const isIOS=()=>/iphone|ipad|ipod/i.test(navigator.userAgent);
+window.addEventListener('beforeinstallprompt',e=>{e.preventDefault();installEvt=e;scheduleRender();});
+window.addEventListener('appinstalled',()=>{installEvt=null;toast(CONFIG.appName+' est installée sur votre téléphone ✅');scheduleRender();});
+function installBtn(cls){return isStandalone()?'':`<button class="btn ${cls||'acc'} full" onclick="installApp()">📲 Installer l'application</button>`;}
+function installApp(){
+  if(installEvt){installEvt.prompt();installEvt.userChoice.finally(()=>{installEvt=null;render();});return;}
+  modal(`<h3>📲 Installer ${esc(CONFIG.appName)}</h3>${isIOS()
+    ?`<ol style="margin-left:18px"><li>Ouvrez ce site dans <b>Safari</b>.</li><li>Touchez le bouton <b>Partager</b> (carré avec une flèche).</li><li>Choisissez <b>« Sur l'écran d'accueil »</b>, puis <b>Ajouter</b>.</li></ol>`
+    :`<ol style="margin-left:18px"><li>Ouvrez ce site dans <b>Chrome</b>.</li><li>Touchez le menu <b>⋮</b> en haut à droite.</li><li>Choisissez <b>« Installer l'application »</b> ou <b>« Ajouter à l'écran d'accueil »</b>.</li></ol>`}
+    <p class="muted small" style="margin-top:8px">L'icône ${esc(CONFIG.appName)} apparaîtra sur votre écran d'accueil, comme une vraie application.</p>
+    <button class="btn full" onclick="closeModal()">Compris</button>`);
+}
+
+/* ================= ROUTEUR ================= */
+function render(){
+  pendingRender=false;
+  if(!booted){$('#app').innerHTML=splash('Chargement…');return;}
+  const me=ME();const h=location.hash||'#/feed';
+  if(!me){
+    if(ONLINE&&S.session){$('#app').innerHTML=splash('Chargement de votre compte…');return;}
+    $('#app').innerHTML=authView(h==='#/register'?'register':'login');return;
+  }
+  const [,route,param]=h.split('/');let html;
+  switch(route){
+    case 'post':html=postView(param);break;
+    case 'profile':html=profileView(param||me.id);break;
+    case 'edit-profile':html=editProfileView();break;
+    case 'friends':html=friendsView();break;
+    case 'groups':html=groupsView();break;
+    case 'group':html=groupView(param);break;
+    case 'market':html=marketView();break;
+    case 'messages':html=messagesView();break;
+    case 'chat':html=chatView(param);break;
+    case 'notifs':html=notifsView();break;
+    case 'search':html=searchView();break;
+    case 'menu':html=menuView();break;
+    case 'admin':html=me.isAdmin?adminView(param||'stats'):feedView();break;
+    default:html=feedView();
+  }
+  $('#app').innerHTML=shell(html);
+  const cb=$('#chatbox');if(cb)cb.scrollTop=cb.scrollHeight;
+}
+window.addEventListener('hashchange',()=>{const m=$('#modal');m.classList.add('hidden');m.innerHTML='';render();window.scrollTo(0,0);});
+if('serviceWorker' in navigator&&location.protocol==='https:')navigator.serviceWorker.register('sw.js').catch(()=>{});
+load();render();
+</script>
+</body>
+</html>
