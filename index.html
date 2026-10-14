@@ -349,7 +349,7 @@ function authView(mode){
   return `<div class="auth"><div class="auth-hero"><div class="auth-logo">${esc(CONFIG.appName)}</div><p class="muted">${esc(CONFIG.slogan)}</p></div>
   <div class="card auth-card">${mode==='login'?`
     <h2>Connexion</h2>
-    <input id="lphone" placeholder="Numéro de téléphone" inputmode="tel" autocomplete="username">
+    <input id="lphone" type="text" placeholder="Numéro de téléphone (ou identifiant admin)" autocapitalize="none" autocorrect="off" spellcheck="false" autocomplete="username">
     <input id="lpw" type="password" placeholder="Mot de passe" autocomplete="current-password" onkeydown="if(event.key==='Enter')doLogin()">
     <button class="btn pri full" onclick="doLogin()">Se connecter</button>
     <div class="sep"></div>
