@@ -1,5 +1,5 @@
 rules_version = '2';
-// Règles de sécurité SouciNana — à coller dans Firebase > Firestore Database > Règles, puis "Publier".
+// Règles de sécurité SouciNana (réseau social de la Côte d'Ivoire) — à coller dans Firebase > Firestore Database > Règles, puis "Publier".
 service cloud.firestore {
   match /databases/{database}/documents {
     function signedIn() { return request.auth != null; }
@@ -23,7 +23,7 @@ service cloud.firestore {
                         || get(/databases/$(database)/documents/pages/$(request.resource.data.pageId)).data.owner == me());
       allow update: if isAdmin()
                     || (signedIn() && resource.data.author == me() && !changed().hasAny(['boostedUntil', 'author', 'pageId']))
-                    || (signedIn() && onlyKeys(['likes', 'comments', 'shares']));
+                    || (signedIn() && onlyKeys(['likes', 'reactions', 'votes', 'comments', 'shares']));
       allow delete: if isAdmin() || (signedIn() && resource.data.author == me());
     }
 
@@ -53,6 +53,20 @@ service cloud.firestore {
       allow read: if signedIn();
       allow create: if signedIn() && request.resource.data.owner == me();
       allow update: if isAdmin() || (signedIn() && resource.data.owner == me() && request.resource.data.owner == me());
+      allow delete: if isAdmin() || (signedIn() && resource.data.owner == me());
+    }
+
+    match /stories/{id} {
+      allow read: if signedIn();
+      allow create: if signedIn() && request.resource.data.author == me();
+      allow update: if signedIn() && onlyKeys(['views']);
+      allow delete: if isAdmin() || (signedIn() && resource.data.author == me());
+    }
+
+    match /events/{id} {
+      allow read: if signedIn();
+      allow create: if signedIn() && request.resource.data.owner == me();
+      allow update: if isAdmin() || (signedIn() && resource.data.owner == me()) || (signedIn() && onlyKeys(['going', 'interested']));
       allow delete: if isAdmin() || (signedIn() && resource.data.owner == me());
     }
 
