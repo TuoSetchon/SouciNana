@@ -136,7 +136,9 @@ const CONFIG = {
   adminWhatsApp: "2250544076062",     // WhatsApp principal de l'admin (format international, sans +)
   adminWhatsApp2: "2250788589231",    // WhatsApp secondaire
   boostOffers: [ {days:1, price:500}, {days:3, price:1200}, {days:7, price:2500} ],
-  storageKey: "soucinana_v2"
+  // Tarifs des campagnes publicitaires (modifiables)
+  adOffers: [ {days:7, price:5000, label:"1 semaine"}, {days:14, price:9000, label:"2 semaines"}, {days:30, price:15000, label:"1 mois"} ],
+  storageKey: "soucinana_v3"
 };
 
 const ONLINE = !!(FIREBASE_CONFIG.apiKey && window.firebase);
@@ -160,10 +162,11 @@ function modal(html){const m=$('#modal');m.innerHTML=`<div class="sheet">${html}
 function closeModal(){const m=$('#modal');m.classList.add('hidden');m.innerHTML='';if(pendingRender){pendingRender=false;render();}}
 function setPrev(id,d){const e=$('#'+id);if(e){e.src=d;e.style.display='block';}}
 function pickImg(input,cb,max=1000){const f=input.files&&input.files[0];if(!f)return;const r=new FileReader();r.onload=e=>{const img=new Image();img.onload=()=>{const k=Math.min(1,max/Math.max(img.width,img.height));const c=document.createElement('canvas');c.width=Math.round(img.width*k);c.height=Math.round(img.height*k);c.getContext('2d').drawImage(img,0,0,c.width,c.height);cb(c.toDataURL('image/jpeg',.7));};img.src=e.target.result;};r.readAsDataURL(f);}
-function contactHref(c){c=String(c||'').trim();if(/^https?:\/\//i.test(c))return esc(c);return 'https://wa.me/'+c.replace(/\D/g,'');}
+function waNum(c){let d=String(c||'').replace(/\D/g,'');if(d.length===10&&!d.startsWith('225'))d='225'+d;return d;}
+function contactHref(c){c=String(c||'').trim();if(/^https?:\/\//i.test(c))return esc(c);return 'https://wa.me/'+waNum(c);}
 
 /* ================= DONNÉES ================= */
-const COLS=['users','posts','groups','listings','ads','friends','requests','messages','notifs','boosts','reports'];
+const COLS=['users','posts','groups','listings','ads','friends','requests','messages','notifs','boosts','reports','pages','follows'];
 let S, db=null, auth=null, FV=null, unsubs=[], base={}, parts={};
 let booted=!ONLINE;
 function emptyState(){const s={session:null};COLS.forEach(c=>s[c]=[]);return s;}
@@ -182,7 +185,7 @@ function load(){
     return;
   }
   try{S=JSON.parse(localStorage.getItem(CONFIG.storageKey));}catch(e){S=null;}
-  if(!S||!S.users||!S.friends||Array.isArray(S.friends[0]))S=seed();
+  if(!S||!S.users||!S.friends||Array.isArray(S.friends[0])||!S.pages||!S.follows)S=seed();
 }
 
 /* --- Synchronisation Firestore : chaque modification de S est envoyée au serveur --- */
@@ -248,6 +251,8 @@ async function onAuth(user){
   L('groups',C('groups'));
   L('listings',C('listings').orderBy('ts','desc').limit(300));
   L('ads',C('ads'));
+  L('pages',C('pages'));
+  L('follows',C('follows'));
   L('friends',C('friends'));
   L('requests',C('requests'));
   L('messages',C('messages').where('from','==',me),'m1');
@@ -264,7 +269,7 @@ async function seedOnline(me){
     .forEach(g=>b.set(db.collection('groups').doc(g[0]),{id:g[0],name:g[1],desc:g[2],icon:g[3],members:[me],owner:me}));
   const pid=uid();
   b.set(db.collection('posts').doc(pid),{id:pid,author:me,text:'Bienvenue sur '+CONFIG.appName+' 🎉 Partagez vos nouvelles, vendez sur le Marché et rejoignez les groupes de votre ville !',img:null,ts:now,likes:[],comments:[],groupId:null,boostedUntil:0,shares:0});
-  b.set(db.collection('ads').doc('a1'),{id:'a1',advertiser:CONFIG.appName,title:'Votre publicité ici !',text:"Faites connaître votre commerce à toute la ville de Boundiali. Contactez l'administrateur pour lancer votre campagne.",img:null,contact:CONFIG.adminWhatsApp,cta:'Contacter sur WhatsApp',active:true,views:0,clicks:0,ts:now});
+  b.set(db.collection('ads').doc('a1'),{id:'a1',advertiser:CONFIG.appName,title:'Votre publicité ici !',text:"Faites connaître votre commerce à toute la ville de Boundiali. Contactez l'administrateur pour lancer votre campagne.",img:null,contact:CONFIG.adminWhatsApp,ctaType:'whatsapp',cta:'Contacter sur WhatsApp',status:'ok',active:true,views:0,clicks:0,ts:now});
   b.commit().catch(fail);
 }
 
@@ -297,7 +302,7 @@ function seed(){
   const du=(id,name,bio)=>({id,name,phone:'',pw:'',quartier:'Boundiali',bio,avatar:null,cover:null,joined:now-30*D,demo:true,blocked:false});
   const users=[
     {id:'admin',name:'Administrateur '+CONFIG.appName,phone:CONFIG.adminLogin,pw:hashPw(CONFIG.adminPassword),quartier:'Boundiali',bio:'Compte officiel de '+CONFIG.appName,avatar:null,cover:null,joined:now-60*D,isAdmin:true,blocked:false},
-    du('u1','Fatou Coulibaly','Commerçante 🛍️ Pagnes et accessoires'),
+    {...du('u1','Fatou Coulibaly','Commerçante 🛍️ Pagnes et accessoires'),pro:true,proCat:'Mode & Beauté',proJob:'Vendeuse de pagnes',proContact:'0700000001'},
     du('u2','Moussa Silué','Footballeur du dimanche ⚽'),
     du('u3','Awa Ouattara','Étudiante 📚'),
     du('u4','Ibrahim Koné','Mécanicien moto 🔧'),
@@ -316,7 +321,8 @@ function seed(){
       P('p3','u3',"Merci à tous pour vos messages pour mon anniversaire ❤️🎂",26*H,['u1','u2','u5'],[C('u5','Joyeux anniversaire ma chérie 🎉',25*H)]),
       P('p4','u5',"Les inscriptions pour les cours de vacances sont ouvertes. Écrivez-moi en privé pour plus d'infos.",50*H,['u4']),
       P('p5','admin',"Bienvenue sur "+CONFIG.appName+" 🎉 Partagez vos nouvelles, vendez sur le Marché et rejoignez les groupes de votre ville !",72*H,['u1','u2','u3','u4']),
-      P('p6','admin',"Bienvenue dans le groupe ! Partagez ici les informations utiles pour la ville.",70*H,[],[],'g1')
+      P('p6','admin',"Bienvenue dans le groupe ! Partagez ici les informations utiles pour la ville.",70*H,[],[],'g1'),
+      {...P('p7','u1',"Nouveaux bazins arrivés 🔥 Passez nous voir au grand marché !",3*H,['u2','u3']),pageId:'pg1'}
     ],
     groups:[
       {id:'g1',name:'Boundiali Infos',desc:'Actualités et informations utiles de la ville',icon:'📢',members:all,owner:'admin'},
@@ -326,13 +332,18 @@ function seed(){
     ],
     friends:[F('u1','u2'),F('u1','u3'),F('u2','u4'),F('u3','u5'),F('u5','u6')],
     requests:[], messages:[], notifs:[], boosts:[], reports:[],
+    pages:[
+      {id:'pg1',owner:'u1',name:'Fatou Pagnes Boutique',cat:'Mode & Beauté',desc:'Pagnes wax, bazin et accessoires. Livraison dans tout Boundiali.',contact:'0700000001',address:'Grand marché de Boundiali',avatar:null,cover:null,ts:now-20*D},
+      {id:'pg2',owner:'u6',name:'Drissa Phone Service',cat:'Services',desc:'Réparation et vente de téléphones et accessoires.',contact:'0700000006',address:'Quartier Commerce',avatar:null,cover:null,ts:now-15*D}
+    ],
+    follows:[{id:'f1',from:'u2',to:'pg1',kind:'page',ts:now},{id:'f2',from:'u3',to:'pg1',kind:'page',ts:now},{id:'f3',from:'u5',to:'pg2',kind:'page',ts:now},{id:'f4',from:'u3',to:'u5',kind:'user',ts:now}],
     listings:[
       {id:'l1',seller:'u4',title:"Moto d'occasion, bon état",price:350000,cat:'Véhicules',desc:'Papiers à jour, visible au garage.',img:null,ts:now-8*H,sold:false},
       {id:'l2',seller:'u1',title:'Pagnes wax (6 yards)',price:12000,cat:'Mode',desc:'Plusieurs motifs disponibles.',img:null,ts:now-20*H,sold:false},
       {id:'l3',seller:'u6',title:'Réparation de téléphones',price:0,cat:'Services',desc:'Écrans, batteries, connecteurs. Travail rapide.',img:null,ts:now-40*H,sold:false},
       {id:'l4',seller:'u5',title:'Cours de répétition à domicile',price:15000,cat:'Services',desc:'Primaire et collège, par mois.',img:null,ts:now-60*H,sold:false}
     ],
-    ads:[{id:'a1',advertiser:CONFIG.appName,title:'Votre publicité ici !',text:"Faites connaître votre commerce à toute la ville de Boundiali. Contactez l'administrateur pour lancer votre campagne.",img:null,contact:CONFIG.adminWhatsApp,cta:'Contacter sur WhatsApp',active:true,views:0,clicks:0,ts:now}]
+    ads:[{id:'a1',advertiser:CONFIG.appName,title:'Votre publicité ici !',text:"Faites connaître votre commerce à toute la ville de Boundiali. Créez votre page professionnelle et lancez votre campagne depuis le Menu.",img:null,contact:CONFIG.adminWhatsApp,ctaType:'whatsapp',cta:'Contacter sur WhatsApp',status:'ok',active:true,views:0,clicks:0,ts:now}]
   };
 }
 
@@ -422,17 +433,19 @@ function shell(content){
 function splash(t){return `<div class="auth"><div class="auth-hero"><div class="auth-logo">${esc(CONFIG.appName)}</div><p class="muted">${t}</p></div>${S&&S.session?'<button class="btn ghost" onclick="logout()">Se déconnecter</button>':''}</div>`;}
 
 let draft={text:'',img:null};
-function composer(gid=''){
-  const me=ME();
-  return `<div class="card composer"><div class="row">${avatar(me)}<textarea id="ptext" placeholder="Quoi de neuf, ${esc(me.name.split(' ')[0])} ?" oninput="draft.text=this.value">${esc(draft.text)}</textarea></div>
+function composer(gid='',pid=''){
+  const me=ME();const pg=pid?P(pid):null;
+  const av=pg?`<a href="#/page/${pg.id}">${pageAvatar(pg)}</a>`:`<a href="#/profile/${me.id}" title="Voir mon profil">${avatar(me)}</a>`;
+  const ph=pg?`Publier en tant que ${esc(pg.name)}…`:`Quoi de neuf, ${esc(me.name.split(' ')[0])} ?`;
+  return `<div class="card composer"><div class="row">${av}<textarea id="ptext" placeholder="${ph}" oninput="draft.text=this.value">${esc(draft.text)}</textarea></div>
   ${draft.img?`<div class="preview"><img src="${esc(draft.img)}"><button class="x" onclick="draft.img=null;render()">✕</button></div>`:''}
   <div class="row between"><label class="btn ghost">📷 Photo<input type="file" accept="image/*" hidden onchange="pickImg(this,d=>{draft.img=d;render()})"></label>
-  <button class="btn pri" onclick="publish('${gid}')">Publier</button></div></div>`;
+  <button class="btn pri" onclick="publish('${gid}','${pid}')">Publier</button></div></div>`;
 }
-function publish(gid){
+function publish(gid,pid){
   const t=(draft.text||'').trim();
   if(!t&&!draft.img)return toast('Écrivez quelque chose ou ajoutez une photo');
-  S.posts.unshift({id:uid(),author:ME().id,text:t,img:draft.img,ts:Date.now(),likes:[],comments:[],groupId:gid||null,boostedUntil:0,shares:0});
+  S.posts.unshift({id:uid(),author:ME().id,text:t,img:draft.img,ts:Date.now(),likes:[],comments:[],groupId:gid||null,pageId:pid||null,boostedUntil:0,shares:0});
   draft={text:'',img:null};save();render();toast('Publication partagée ✅');
 }
 function commentHtml(c){const a=U(c.author)||{name:'Utilisateur'};return `<div class="cmt"><a href="#/profile/${c.author}">${avatar(a,32)}</a><div><div class="bub"><a class="name small" href="#/profile/${c.author}">${esc(a.name)}</a><div>${fmtText(c.text)}</div></div><span class="muted small">${ago(c.ts)}</span></div></div>`;}
@@ -441,8 +454,11 @@ function postCard(p,full){
   const g=p.groupId?S.groups.find(x=>x.id===p.groupId):null;
   const boosted=p.boostedUntil>Date.now();
   const cs=full?comments:comments.slice(-2);
+  const pg=p.pageId?P(p.pageId):null;
+  const head=pg?`<a href="#/page/${pg.id}">${pageAvatar(pg)}</a><div class="grow"><a class="name" href="#/page/${pg.id}">${esc(pg.name)}</a> <span class="tag acc">Page</span>`
+    :`<a href="#/profile/${p.author}">${avatar(a)}</a><div class="grow"><a class="name" href="#/profile/${p.author}">${esc(a.name)}</a>${a.pro?' <span class="tag acc">💼 Pro</span>':''}`;
   return `<article class="card post">
-  <div class="post-head"><a href="#/profile/${p.author}">${avatar(a)}</a><div class="grow"><a class="name" href="#/profile/${p.author}">${esc(a.name)}</a>${g?` <span class="muted">▸ <a href="#/group/${g.id}">${esc(g.name)}</a></span>`:''}<div class="muted small">${ago(p.ts)}${boosted?' · <span class="tag acc">🚀 Boosté</span>':''}</div></div>
+  <div class="post-head">${head}${g?` <span class="muted">▸ <a href="#/group/${g.id}">${esc(g.name)}</a></span>`:''}<div class="muted small">${ago(p.ts)}${boosted?' · <span class="tag acc">🚀 Boosté</span>':''}</div></div>
   <button class="ic" onclick="postMenu('${p.id}')">⋯</button></div>
   ${p.text?`<div class="post-text">${fmtText(p.text)}</div>`:''}
   ${p.img?`<img class="post-img" src="${esc(p.img)}" alt="" loading="lazy">`:''}
@@ -452,11 +468,22 @@ function postCard(p,full){
   ${full?`<div class="row comment-box">${avatar(me,32)}<input id="ctext" placeholder="Écrire un commentaire…" onkeydown="if(event.key==='Enter')addComment('${p.id}')"><button class="btn pri sm" onclick="addComment('${p.id}')">Envoyer</button></div>`:''}
   </article>`;
 }
+const CTA_LABELS={whatsapp:'Contacter sur WhatsApp',order:'Commander sur WhatsApp',call:'Appeler',page:'Voir la page'};
+function adHref(a){
+  if(a.ctaType==='page'&&a.pageId)return '#/page/'+a.pageId;
+  if(a.ctaType==='call')return 'tel:'+String(a.contact||'').replace(/[^\d+]/g,'');
+  return a.contact?contactHref(a.contact):'';
+}
+const isAdLive=a=>a.active&&a.status!=='pending'&&a.status!=='refused'&&(!a.endsAt||a.endsAt>Date.now());
 function adCard(a){
-  return `<article class="card post ad"><div class="post-head"><span class="av" style="width:40px;height:40px;background:var(--acc)">📣</span><div class="grow"><b>${esc(a.advertiser)}</b><div class="muted small">Sponsorisé</div></div></div>
-  <div class="post-text"><b>${esc(a.title)}</b><br>${fmtText(a.text)}</div>
+  const pg=a.pageId?P(a.pageId):null;const ow=!pg&&a.owner?U(a.owner):null;
+  const av=pg?`<a href="#/page/${pg.id}">${pageAvatar(pg)}</a>`:ow?`<a href="#/profile/${ow.id}">${avatar(ow)}</a>`:`<span class="av" style="width:40px;height:40px;background:var(--acc)">📣</span>`;
+  const nm=pg?`<a class="name" href="#/page/${pg.id}">${esc(pg.name)}</a>`:ow?`<a class="name" href="#/profile/${ow.id}">${esc(a.advertiser)}</a>`:`<b>${esc(a.advertiser)}</b>`;
+  const href=adHref(a);const ext=href&&!href.startsWith('#');
+  return `<article class="card post ad"><div class="post-head">${av}<div class="grow">${nm}<div class="muted small">Sponsorisé · 📣</div></div></div>
+  <div class="post-text"><b>${esc(a.title)}</b>${a.text?'<br>'+fmtText(a.text):''}</div>
   ${a.img?`<img class="post-img" src="${esc(a.img)}" alt="">`:''}
-  ${a.contact?`<div><a class="btn acc full" href="${contactHref(a.contact)}" target="_blank" rel="noopener" onclick="adClick('${a.id}')">${esc(a.cta||'En savoir plus')}</a></div>`:''}</article>`;
+  ${href?`<div><a class="btn acc full" href="${href}" ${ext?'target="_blank" rel="noopener"':''} onclick="adClick('${a.id}')">${esc(a.cta||'En savoir plus')}</a></div>`:''}</article>`;
 }
 function adClick(id){const a=S.ads.find(x=>x.id===id);if(a){a.clicks=(a.clicks||0)+1;save();}}
 
@@ -529,7 +556,10 @@ function myBoostsModal(){
 const statusTag = s => s==='ok'?'<span class="tag ok">Activé</span>':s==='refused'?'<span class="tag no">Refusé</span>':'<span class="tag wait">En attente</span>';
 function adsInfoModal(){
   modal(`<h3>📣 Faire de la publicité</h3><p>Faites connaître votre commerce, votre école ou votre événement à toute la ville.</p>
-  <div class="pay"><b>Deux options :</b><ol><li><b>Booster</b> une de vos publications (dès ${fmtF(CONFIG.boostOffers[0].price)}) via le menu ⋯ de la publication.</li><li><b>Campagne sponsorisée</b> : une annonce avec image et bouton de contact, diffusée dans le fil de tous les utilisateurs. Contactez l'administrateur.</li></ol></div>
+  <div class="pay"><b>Deux options :</b><ol><li><b>Campagne sponsorisée</b> (dès ${fmtF(CONFIG.adOffers[0].price)} / ${esc(CONFIG.adOffers[0].label)}) : une annonce avec image et bouton de contact, diffusée dans le fil de tous les utilisateurs. Lancez-la vous-même depuis votre compte pro ou votre page.</li><li><b>Booster</b> une de vos publications (dès ${fmtF(CONFIG.boostOffers[0].price)}) via le menu ⋯ de la publication.</li></ol></div>
+  <button class="btn acc full" onclick="closeModal();go('#/ad-new/me')">🚀 Lancer une campagne</button>
+  <button class="btn full" onclick="closeModal();go('#/my-ads')">📊 Mes campagnes</button>
+  <p class="muted small center" style="margin-top:10px">Besoin d'aide ? Contactez l'administrateur :</p>
   <a class="btn acc full" href="https://wa.me/${esc(CONFIG.adminWhatsApp)}" target="_blank" rel="noopener">WhatsApp : 05 44 07 60 62</a>
   <a class="btn acc full" href="https://wa.me/${esc(CONFIG.adminWhatsApp2)}" target="_blank" rel="noopener">WhatsApp : 07 88 58 92 31</a>
   <button class="btn ghost full" onclick="closeModal()">Fermer</button>`);
@@ -541,7 +571,7 @@ function feedView(){
   const now=Date.now();
   const posts=S.posts.filter(p=>!p.groupId&&visibleUser(p.author));
   const ordered=[...posts.filter(p=>p.boostedUntil>now),...posts.filter(p=>!(p.boostedUntil>now))];
-  const ads=S.ads.filter(a=>a.active);const out=[];let ai=0,seen=false;
+  const ads=S.ads.filter(isAdLive);const out=[];let ai=0,seen=false;
   const show=a=>{if(!seenAds.has(a.id)){seenAds.add(a.id);a.views=(a.views||0)+1;seen=true;}out.push(adCard(a));};
   ordered.forEach((p,i)=>{out.push(postCard(p));if((i+1)%4===0&&ads.length)show(ads[ai++%ads.length]);});
   if(ordered.length<4&&ads.length)show(ads[0]);
@@ -573,15 +603,20 @@ function unfriend(id){if(!confirm('Retirer cet ami ?'))return;const me=ME().id;S
 function profileView(id){
   const u=U(id);if(!u||u.blocked)return empty('Profil introuvable');
   const me=ME();const isMe=u.id===me.id;const fr=friendsOf(u.id);
-  const posts=S.posts.filter(p=>p.author===u.id&&!p.groupId);
+  const posts=S.posts.filter(p=>p.author===u.id&&!p.groupId&&!p.pageId);
+  const nf=followers(u.id),ng=following(u.id);const pages=S.pages.filter(p=>p.owner===u.id);
   let action;
-  if(isMe)action=`<button class="btn" onclick="go('#/edit-profile')">✏️ Modifier le profil</button>`;
-  else{const st=friendStatus(me.id,u.id);
-    action=(st==='friends'?`<button class="btn" onclick="unfriend('${u.id}')">✔ Amis</button>`:st==='sent'?`<button class="btn" disabled>Demande envoyée</button>`:st==='received'?`<button class="btn pri" onclick="acceptFriend('${u.id}')">Accepter</button>`:`<button class="btn pri" onclick="addFriend('${u.id}')">➕ Ajouter</button>`)+` <button class="btn" onclick="go('#/chat/${u.id}')">💬 Message</button>`;}
+  if(isMe)action=`<button class="btn" onclick="go('#/edit-profile')">✏️ Modifier le profil</button> ${u.pro?`<button class="btn acc" onclick="go('#/ad-new/me')">📣 Publicité</button>`:`<button class="btn" onclick="proModal()">💼 Passer pro</button>`}`;
+  else{const st=friendStatus(me.id,u.id);const fo=isFollowing(me.id,u.id);
+    action=(st==='friends'?`<button class="btn" onclick="unfriend('${u.id}')">✔ Amis</button>`:st==='sent'?`<button class="btn" disabled>Demande envoyée</button>`:st==='received'?`<button class="btn pri" onclick="acceptFriend('${u.id}')">Accepter</button>`:`<button class="btn pri" onclick="addFriend('${u.id}')">➕ Ajouter</button>`)
+      +` <button class="btn ${fo?'':'pri'}" onclick="toggleFollow('${u.id}','user')">${fo?'✔ Abonné':'🔔 Suivre'}</button> <button class="btn" onclick="go('#/chat/${u.id}')">💬 Message</button>`
+      +(u.pro&&u.proContact?` <a class="btn" href="${contactHref(u.proContact)}" target="_blank" rel="noopener">WhatsApp</a>`:'');}
   return `<div class="card profile"><div class="cover" ${u.cover?`style="background-image:url('${esc(u.cover)}')"`:''}></div><div class="pav">${avatar(u,96)}</div>
-  <h2>${esc(u.name)}${u.isAdmin?' ✅':''}</h2>${u.bio?`<p>${esc(u.bio)}</p>`:''}
-  <p class="muted small">📍 ${esc(u.quartier||'Boundiali')} · ${fr.length} ami${fr.length>1?'s':''} · Membre depuis ${new Date(u.joined).toLocaleDateString('fr-FR',{month:'long',year:'numeric'})}</p>
-  <div class="row center" style="margin-top:10px">${action}</div></div>
+  <h2>${esc(u.name)}${u.isAdmin?' ✅':''}</h2>${u.pro?`<p><span class="tag acc">💼 ${esc(u.proJob||'Professionnel')}${u.proCat?' · '+esc(u.proCat):''}</span></p>`:''}${u.bio?`<p>${esc(u.bio)}</p>`:''}
+  <div class="row center" style="gap:18px;margin:8px 0"><div><b>${fr.length}</b><div class="muted small">ami${fr.length>1?'s':''}</div></div><div><b>${nf}</b><div class="muted small">abonné${nf>1?'s':''}</div></div><div><b>${ng}</b><div class="muted small">abonnement${ng>1?'s':''}</div></div><div><b>${posts.length}</b><div class="muted small">publication${posts.length>1?'s':''}</div></div></div>
+  <p class="muted small">📍 ${esc(u.quartier||'Boundiali')} · Membre depuis ${new Date(u.joined).toLocaleDateString('fr-FR',{month:'long',year:'numeric'})}</p>
+  <div class="row center" style="margin-top:10px;flex-wrap:wrap">${action}</div></div>
+  ${pages.length||isMe?`<div class="card"><div class="row between"><h3>Pages</h3>${isMe?`<button class="btn sm" onclick="go('#/page-edit/new')">+ Créer</button>`:''}</div>${pages.map(pg=>`<a class="list-item" href="#/page/${pg.id}">${pageAvatar(pg,44)}<div class="grow"><b>${esc(pg.name)}</b><div class="muted small">${esc(pg.cat)} · ${followers(pg.id)} abonné${followers(pg.id)>1?'s':''}</div></div></a>`).join('')||'<p class="muted small">Créez une page pour votre boutique, entreprise ou association.</p>'}</div>`:''}
   ${fr.length?`<div class="card"><h3>Amis</h3><div class="grid-friends">${fr.slice(0,6).map(f=>`<a href="#/profile/${f.id}" class="fcell">${avatar(f,56)}<span>${esc(f.name.split(' ')[0])}</span></a>`).join('')}</div></div>`:''}
   ${isMe?composer():''}
   ${posts.map(p=>postCard(p)).join('')||empty('Aucune publication')}`;
@@ -719,10 +754,12 @@ function searchResults(q){
   q=q.trim().toLowerCase();if(q.length<2)return '<div class="empty">Tapez au moins 2 lettres</div>';
   const us=S.users.filter(u=>!u.blocked&&(u.name||'').toLowerCase().includes(q));
   const gs=S.groups.filter(g=>(g.name||'').toLowerCase().includes(q));
+  const pgs=S.pages.filter(p=>visibleUser(p.owner)&&((p.name||'')+' '+(p.cat||'')).toLowerCase().includes(q));
   const ls=S.listings.filter(l=>(l.title||'').toLowerCase().includes(q));
   const ps=S.posts.filter(p=>visibleUser(p.author)&&(p.text||'').toLowerCase().includes(q)).slice(0,10);
   let h='';
   if(us.length)h+=`<div class="card"><h3>Personnes</h3>${us.map(u=>`<a class="list-item" href="#/profile/${u.id}">${avatar(u,40)}<b>${esc(u.name)}</b></a>`).join('')}</div>`;
+  if(pgs.length)h+=`<div class="card"><h3>Pages</h3>${pgs.map(p=>`<a class="list-item" href="#/page/${p.id}">${pageAvatar(p,40)}<div class="grow"><b>${esc(p.name)}</b><div class="muted small">${esc(p.cat)}</div></div></a>`).join('')}</div>`;
   if(gs.length)h+=`<div class="card"><h3>Groupes</h3>${gs.map(g=>`<a class="list-item" href="#/group/${g.id}"><span style="font-size:24px">${esc(g.icon)}</span><b>${esc(g.name)}</b></a>`).join('')}</div>`;
   if(ls.length)h+=`<div class="card"><h3>Marché</h3>${ls.map(l=>`<div class="list-item" onclick="listingModal('${l.id}')" style="cursor:pointer"><span style="font-size:24px">📦</span><div class="grow"><b>${esc(l.title)}</b><div class="price small">${priceTxt(l.price)}</div></div></div>`).join('')}</div>`;
   if(ps.length)h+=`<h3 style="margin:6px 4px">Publications</h3>`+ps.map(p=>postCard(p)).join('');
@@ -730,19 +767,22 @@ function searchResults(q){
 }
 function searchView(){
   setTimeout(()=>{const i=$('#sq');if(i){i.focus();i.setSelectionRange(i.value.length,i.value.length);}},50);
-  return `<input id="sq" placeholder="Rechercher des personnes, groupes, articles…" value="${esc(searchQ)}" oninput="searchQ=this.value;$('#sres').innerHTML=searchResults(this.value)" style="border-radius:20px">
+  return `<input id="sq" placeholder="Rechercher des personnes, pages, groupes, articles…" value="${esc(searchQ)}" oninput="searchQ=this.value;$('#sres').innerHTML=searchResults(this.value)" style="border-radius:20px">
   <div id="sres">${searchResults(searchQ)}</div>`;
 }
 
 function menuView(){
-  const me=ME();const pend=S.boosts.filter(b=>b.status==='pending').length+S.reports.length;
+  const me=ME();const pend=S.boosts.filter(b=>b.status==='pending').length+S.reports.length+S.ads.filter(a=>a.status==='pending').length;
   return `<a class="card row" href="#/profile/${me.id}" style="color:inherit">${avatar(me,56)}<div><b style="font-size:17px">${esc(me.name)}</b><div class="muted small">Voir mon profil</div></div></a>
   <div class="card menu">
+    <a href="#/pages"><span>📄</span>Pages professionnelles</a>
     <a href="#/groups"><span>👥</span>Groupes</a>
     <a href="#/market"><span>🛒</span>Marché</a>
     <a href="#/friends"><span>🤝</span>Amis</a>
     <a href="javascript:myBoostsModal()"><span>🚀</span>Mes boosts</a>
     <a href="javascript:adsInfoModal()"><span>📣</span>Faire de la publicité</a>
+    <a href="#/my-ads"><span>📊</span>Mes campagnes publicitaires</a>
+    <a href="javascript:proModal()"><span>💼</span>${me.pro?'Mon compte professionnel':'Passer en compte professionnel'}</a>
     <a href="#/edit-profile"><span>⚙️</span>Paramètres du profil</a>
     ${me.isAdmin?`<a href="#/admin"><span>🛡️</span>Espace administrateur ${pend?`<span class="tag acc">${pend}</span>`:''}</a>`:''}
   </div>
@@ -751,16 +791,180 @@ function menuView(){
   <p class="muted small center" style="margin-top:14px">${esc(CONFIG.appName)} · ${esc(CONFIG.slogan)}</p>`;
 }
 
+/* ================= PAGES PROFESSIONNELLES & ABONNEMENTS ================= */
+const PAGE_CATS=['Commerce','Restaurant / Maquis','Mode & Beauté','Services','Éducation','Santé','Transport','Immobilier','BTP / Construction','Événementiel','Agriculture','Association / Religion','Média','Autre'];
+const P = id => S.pages.find(p=>p.id===id);
+const followers = id => S.follows.filter(f=>f.to===id).length;
+const following = id => S.follows.filter(f=>f.from===id).length;
+const isFollowing = (from,to) => S.follows.some(f=>f.from===from&&f.to===to);
+const myPages = () => S.pages.filter(p=>p.owner===ME().id);
+function pageAvatar(pg,sz=40){
+  const st=`width:${sz}px;height:${sz}px;border-radius:${Math.round(sz/4)}px`;
+  return pg.avatar?`<img class="av" src="${esc(pg.avatar)}" style="${st}" alt="">`:`<span class="av" style="${st};font-size:${Math.round(sz*.4)}px;background:${color(pg.name)}">${esc(initials(pg.name))}</span>`;
+}
+function toggleFollow(to,kind){
+  const me=ME();const f=S.follows.find(x=>x.from===me.id&&x.to===to);
+  if(f)S.follows=S.follows.filter(x=>x!==f);
+  else{
+    S.follows.push({id:uid(),from:me.id,to,kind,ts:Date.now()});
+    const pg=kind==='page'?P(to):null;const target=pg?pg.owner:to;
+    if(target&&target!==me.id)notify(target,pg?`${me.name} s'est abonné(e) à votre page ${pg.name}`:`${me.name} s'est abonné(e) à vous`,pg?'#/page/'+to:'#/profile/'+me.id);
+  }
+  save();render();
+}
+function pagesView(){
+  const me=ME().id;const mine=myPages();const others=S.pages.filter(p=>p.owner!==me&&visibleUser(p.owner));
+  const item=p=>{const n=followers(p.id);return `<a class="list-item" href="#/page/${p.id}">${pageAvatar(p,48)}<div class="grow"><b>${esc(p.name)}</b><div class="muted small">${esc(p.cat)} · ${n} abonné${n>1?'s':''}</div></div>${p.owner===me?'<span class="tag ok">Ma page</span>':isFollowing(me,p.id)?'<span class="tag ok">Abonné</span>':''}</a>`;};
+  return `<div class="row between" style="margin-bottom:8px"><h2>📄 Pages</h2><button class="btn pri sm" onclick="go('#/page-edit/new')">+ Créer une page</button></div>
+  <div class="card"><h3>Mes pages</h3>${mine.map(item).join('')||'<p class="muted small">Créez la page de votre boutique, entreprise, école ou association : publiez en son nom, gagnez des abonnés et lancez vos publicités.</p>'}</div>
+  <div class="card"><h3>Découvrir des pages</h3>${others.map(item).join('')||empty('Aucune autre page pour le moment.')}</div>`;
+}
+let pgImg={id:null};
+function pageEditView(id){
+  const me=ME();const pg=id==='new'?null:P(id);
+  if(id!=='new'&&!pg)return empty('Page introuvable');
+  if(pg&&pg.owner!==me.id&&!me.isAdmin)return empty('Accès refusé');
+  if(pgImg.id!==id)pgImg={id};
+  const v=k=>esc(pg?pg[k]||'':'');
+  return `<a class="back" href="${pg?'#/page/'+pg.id:'#/pages'}">← Retour</a><div class="card"><h3>${pg?'Modifier la page':'Créer une page professionnelle'}</h3>
+  <div class="row" style="margin-bottom:10px">${pg?pageAvatar(pg,72):'<span class="av" style="width:72px;height:72px;border-radius:18px;background:#c9d1d9;font-size:30px">🏪</span>'}<label class="btn">📷 Logo / photo<input type="file" accept="image/*" hidden onchange="pickImg(this,d=>{pgImg.avatar=d;setPrev('pgavp',d)},300)"></label></div>
+  <img id="pgavp" class="imgprev" style="width:72px;height:72px;border-radius:18px" alt="">
+  <label class="btn full" style="margin:0 0 8px">🖼️ Photo de couverture<input type="file" accept="image/*" hidden onchange="pickImg(this,d=>{pgImg.cover=d;setPrev('pgcvp',d)},800)"></label>
+  <img id="pgcvp" class="imgprev" alt="">
+  <input id="pgname" placeholder="Nom de la page (ex. Boutique Awa Mode)" value="${v('name')}">
+  <select id="pgcat">${PAGE_CATS.map(c=>`<option ${pg&&pg.cat===c?'selected':''}>${c}</option>`).join('')}</select>
+  <textarea id="pgdesc" class="big" placeholder="Présentez votre activité, vos produits, vos horaires…">${v('desc')}</textarea>
+  <input id="pgwa" placeholder="Numéro WhatsApp / téléphone" inputmode="tel" value="${v('contact')}">
+  <input id="pgaddr" placeholder="Adresse ou quartier" value="${v('address')}">
+  <button class="btn pri full" onclick="savePage('${id}')">${pg?'Enregistrer':'Créer la page'}</button></div>`;
+}
+function savePage(id){
+  const name=$('#pgname').value.trim();if(name.length<3)return toast('Donnez un nom à la page');
+  const data={name,cat:$('#pgcat').value,desc:$('#pgdesc').value.trim(),contact:$('#pgwa').value.trim(),address:$('#pgaddr').value.trim()};
+  let pg;
+  if(id==='new'){pg={id:uid(),owner:ME().id,avatar:pgImg.avatar||null,cover:pgImg.cover||null,ts:Date.now(),...data};S.pages.push(pg);}
+  else{pg=P(id);Object.assign(pg,data);if(pgImg.avatar)pg.avatar=pgImg.avatar;if(pgImg.cover)pg.cover=pgImg.cover;}
+  pgImg={id:null};save();toast(id==='new'?'Page créée ✅':'Page mise à jour ✅');go('#/page/'+pg.id);
+}
+function deletePage(id){
+  if(!confirm('Supprimer cette page et ses publications ?'))return;
+  S.pages=S.pages.filter(p=>p.id!==id);S.posts=S.posts.filter(p=>p.pageId!==id);save();go('#/pages');
+}
+function pageView(id){
+  const pg=P(id);if(!pg||!visibleUser(pg.owner))return empty('Page introuvable');
+  const me=ME();const own=pg.owner===me.id;const nf=followers(pg.id);const fo=isFollowing(me.id,pg.id);
+  const posts=S.posts.filter(p=>p.pageId===pg.id&&visibleUser(p.author));
+  const owner=U(pg.owner)||{name:'?'};
+  const actions=own?`<button class="btn" onclick="go('#/page-edit/${pg.id}')">✏️ Modifier</button> <button class="btn acc" onclick="go('#/ad-new/${pg.id}')">📣 Lancer une publicité</button>`
+    :`<button class="btn ${fo?'':'pri'}" onclick="toggleFollow('${pg.id}','page')">${fo?'✔ Abonné':'➕ S\'abonner'}</button> <button class="btn" onclick="go('#/chat/${pg.owner}')">💬 Message</button>${pg.contact?` <a class="btn" href="${contactHref(pg.contact)}" target="_blank" rel="noopener">WhatsApp</a>`:''}`;
+  return `<div class="card profile"><div class="cover" ${pg.cover?`style="background-image:url('${esc(pg.cover)}')"`:''}></div><div class="pav">${pageAvatar(pg,96)}</div>
+  <h2>${esc(pg.name)}</h2><p><span class="tag acc">${esc(pg.cat)}</span></p>${pg.desc?`<p>${fmtText(pg.desc)}</p>`:''}
+  <div class="row center" style="gap:18px;margin:8px 0"><div><b>${nf}</b><div class="muted small">abonné${nf>1?'s':''}</div></div><div><b>${posts.length}</b><div class="muted small">publication${posts.length>1?'s':''}</div></div></div>
+  <p class="muted small">${pg.address?'📍 '+esc(pg.address)+' · ':''}${pg.contact?'📞 '+esc(pg.contact)+' · ':''}Gérée par <a href="#/profile/${pg.owner}">${esc(owner.name)}</a></p>
+  <div class="row center" style="margin-top:10px;flex-wrap:wrap">${actions}</div>
+  ${own||me.isAdmin?`<div class="row center" style="margin-top:8px"><button class="btn ghost sm" onclick="deletePage('${pg.id}')">🗑️ Supprimer la page</button></div>`:''}</div>
+  ${own?composer('',pg.id):''}
+  ${posts.map(p=>postCard(p)).join('')||empty('Aucune publication sur cette page.')}`;
+}
+
+/* ================= COMPTE PROFESSIONNEL ================= */
+function proModal(){
+  const me=ME();
+  modal(`<h3>💼 Compte professionnel</h3><p class="muted small">Le compte professionnel affiche votre activité sur votre profil, ajoute un bouton WhatsApp et vous permet de lancer vos campagnes publicitaires vous-même.</p>
+  <select id="procat">${PAGE_CATS.map(c=>`<option ${me.proCat===c?'selected':''}>${c}</option>`).join('')}</select>
+  <input id="projob" placeholder="Votre activité (ex. Couturier, Vendeuse de pagnes)" value="${esc(me.proJob||'')}">
+  <input id="prowa" placeholder="Numéro WhatsApp professionnel" inputmode="tel" value="${esc(me.proContact||'')}">
+  <button class="btn pri full" onclick="savePro()">${me.pro?'Enregistrer':'Passer en compte professionnel'}</button>
+  ${me.pro?`<button class="btn full" onclick="savePro(true)">Revenir à un compte personnel</button>`:''}
+  <button class="btn ghost full" onclick="closeModal()">Annuler</button>`);
+}
+function savePro(off){
+  const me=ME();
+  if(off)me.pro=false;
+  else{const job=$('#projob').value.trim();if(job.length<2)return toast('Indiquez votre activité');me.pro=true;me.proCat=$('#procat').value;me.proJob=job;me.proContact=$('#prowa').value.trim();}
+  save();closeModal();render();toast(off?'Vous êtes revenu(e) à un compte personnel':'Compte professionnel activé 💼');
+}
+
+/* ================= CAMPAGNES PUBLICITAIRES (libre-service) ================= */
+function adSources(){const me=ME();const s=[];if(me.pro)s.push({id:'me',name:me.name+' (compte pro)'});myPages().forEach(p=>s.push({id:p.id,name:'Page : '+p.name}));return s;}
+function waAdmin(a){
+  const msg=`Bonjour, je viens de lancer une campagne publicitaire sur ${CONFIG.appName}.\nCode : ${a.code}\nAnnonceur : ${a.advertiser}\nTitre : ${a.title}\nDurée : ${a.offer}\nMontant : ${fmtF(a.amount)}${a.ref?'\nRéférence Wave : '+a.ref:'\nJe vous envoie le dépôt Wave.'}`;
+  return `https://wa.me/${CONFIG.adminWhatsApp}?text=${encodeURIComponent(msg)}`;
+}
+let adDraftImg=null,afterNav=null;
+function adNewView(src){
+  const me=ME();const srcs=adSources();
+  if(!srcs.length)return `<a class="back" href="javascript:history.back()">← Retour</a><div class="card center"><h3>📣 Lancer une publicité</h3><p class="muted" style="margin:8px 0">Pour lancer une campagne, passez en compte professionnel ou créez une page professionnelle.</p><button class="btn pri full" onclick="proModal()">💼 Passer en compte professionnel</button><button class="btn acc full" onclick="go('#/page-edit/new')">📄 Créer une page</button></div>`;
+  if(!srcs.some(s=>s.id===src))src=srcs[0].id;
+  const pg=src==='me'?null:P(src);const def=pg?pg.contact:me.proContact;
+  return `<a class="back" href="javascript:history.back()">← Retour</a><div class="card"><h3>📣 Nouvelle campagne publicitaire</h3>
+  <p class="muted small" style="margin-bottom:8px">Votre annonce apparaîtra, marquée « Sponsorisé », dans le fil d'actualité de tous les utilisateurs de ${esc(CONFIG.appName)}.</p>
+  <label class="small muted">Annoncer au nom de</label>
+  <select id="adsrc" onchange="go('#/ad-new/'+this.value)">${srcs.map(s=>`<option value="${s.id}" ${s.id===src?'selected':''}>${esc(s.name)}</option>`).join('')}</select>
+  <input id="adtitle" placeholder="Titre (ex. Promo -20% ce week-end !)" maxlength="80">
+  <textarea id="adtext" class="big" placeholder="Texte de l'annonce : produits, prix, adresse…"></textarea>
+  <label class="btn full" style="margin:0 0 8px">📷 Image de la publicité<input type="file" accept="image/*" hidden onchange="pickImg(this,d=>{adDraftImg=d;setPrev('adprev',d)})"></label><img id="adprev" class="imgprev" alt="" ${adDraftImg?`src="${adDraftImg}" style="display:block"`:''}>
+  <label class="small muted">Bouton de l'annonce</label>
+  <select id="adcta">${Object.entries(CTA_LABELS).filter(([k])=>k!=='page'||pg).map(([k,l])=>`<option value="${k}">${l}</option>`).join('')}</select>
+  <input id="adcontact" placeholder="Numéro WhatsApp / téléphone" inputmode="tel" value="${esc(def||'')}">
+  <label class="small muted">Durée de la campagne</label>
+  <div class="offers">${CONFIG.adOffers.map((o,i)=>`<label class="offer"><input type="radio" name="ado" value="${i}" ${i===0?'checked':''}><b>${esc(o.label)}</b><span>${fmtF(o.price)}</span></label>`).join('')}</div>
+  <div class="pay"><b>Paiement :</b><ol><li>Envoyez le montant par <b>Wave</b> au <b>${esc(CONFIG.adminMomo)}</b>.</li><li>Indiquez la référence Wave ci-dessous (si vous avez déjà payé).</li><li>Votre publicité démarre dès que l'administrateur confirme la réception du dépôt.</li></ol></div>
+  <input id="adref" placeholder="Référence Wave (facultatif)">
+  <button class="btn acc full" onclick="submitAd()">🚀 Lancer ma campagne</button></div>`;
+}
+function submitAd(){
+  const me=ME();const src=$('#adsrc').value;const pg=src==='me'?null:P(src);
+  const title=$('#adtitle').value.trim(),text=$('#adtext').value.trim();
+  if(title.length<3)return toast("Donnez un titre à l'annonce");
+  const ctaType=$('#adcta').value,contact=$('#adcontact').value.trim();
+  if(ctaType!=='page'&&!contact)return toast('Indiquez le numéro de contact');
+  const o=CONFIG.adOffers[+document.querySelector('input[name=ado]:checked').value];
+  const code='PUB-'+Math.random().toString(36).slice(2,7).toUpperCase();
+  const a={id:uid(),owner:me.id,pageId:pg?pg.id:null,advertiser:pg?pg.name:me.name,title,text,img:adDraftImg,ctaType,contact,cta:CTA_LABELS[ctaType],
+    status:'pending',active:false,days:o.days,amount:o.price,offer:o.label,ref:$('#adref').value.trim(),code,views:0,clicks:0,ts:Date.now()};
+  S.ads.unshift(a);adDraftImg=null;
+  notify(adminId(),`📣 Nouvelle campagne ${code} de ${a.advertiser} (${o.label}, ${fmtF(o.price)}) à valider`,'#/admin/ads');
+  save();
+  afterNav=()=>modal(`<h3>✅ Campagne envoyée</h3><p>Votre code : <b>${esc(code)}</b></p>
+    <div class="pay">Dernière étape : envoyez <b>${fmtF(o.price)}</b> par <b>Wave</b> au <b>${esc(CONFIG.adminMomo)}</b>, puis prévenez l'administrateur. Votre publicité sera activée dès réception du dépôt.</div>
+    <a class="btn acc full" href="${esc(waAdmin(a))}" target="_blank" rel="noopener" onclick="closeModal()">📲 Prévenir l'administrateur sur WhatsApp</a>
+    <button class="btn ghost full" onclick="closeModal()">Plus tard</button>`);
+  if(location.hash==='#/my-ads'){render();const f=afterNav;afterNav=null;f();}else go('#/my-ads');
+}
+function adStatus(a){
+  if(a.status==='pending')return '<span class="tag wait">En attente du paiement</span>';
+  if(a.status==='refused')return '<span class="tag no">Refusée</span>';
+  if(a.endsAt&&a.endsAt<=Date.now())return '<span class="tag no">Terminée</span>';
+  return a.active?'<span class="tag ok">En cours</span>':'<span class="tag wait">En pause</span>';
+}
+function myAdsView(){
+  const me=ME().id;const ads=S.ads.filter(a=>a.owner===me);
+  return `<div class="row between" style="margin-bottom:8px"><h2>📊 Mes campagnes</h2><button class="btn acc sm" onclick="go('#/ad-new/me')">+ Nouvelle</button></div>
+  ${ads.map(a=>`<div class="card"><div class="row between" style="align-items:flex-start"><b class="grow">${esc(a.title)}</b>${adStatus(a)}</div>
+  <div class="muted small">${esc(a.code||'')} · ${esc(a.advertiser)} · ${esc(a.offer||'')} · ${fmtF(a.amount)}</div>
+  <div class="small" style="margin-top:4px">👁️ ${a.views||0} vues · 👆 ${a.clicks||0} clics${a.endsAt&&a.status==='ok'?' · jusqu\'au '+new Date(a.endsAt).toLocaleDateString('fr-FR'):''}</div>
+  ${a.status==='pending'?`<div class="row" style="margin-top:8px;flex-wrap:wrap"><a class="btn acc sm" href="${esc(waAdmin(a))}" target="_blank" rel="noopener">📲 Prévenir l'administrateur</a><button class="btn sm" onclick="cancelAd('${a.id}')">Annuler</button></div>`:''}</div>`).join('')||empty("Vous n'avez lancé aucune campagne pour le moment.")}`;
+}
+function cancelAd(id){if(!confirm('Annuler cette campagne ?'))return;S.ads=S.ads.filter(a=>a.id!==id);save();render();}
+function validateAd(id,ok){
+  const a=S.ads.find(x=>x.id===id);if(!a)return;
+  if(ok){a.status='ok';a.active=true;a.startsAt=Date.now();a.endsAt=Date.now()+(a.days||7)*86400e3;notify(a.owner,`🎉 Votre publicité ${a.code} est en ligne pour ${a.offer}`,'#/my-ads');}
+  else{a.status='refused';a.active=false;notify(a.owner,`Votre campagne ${a.code} a été refusée. Contactez l'administrateur.`,'#/my-ads');}
+  a.decidedAt=Date.now();save();render();toast(ok?'Publicité activée 🚀':'Campagne refusée');
+}
+
 /* ================= ADMINISTRATION ================= */
 let adImg=null;
 function adminView(tab){
   const T=[['stats','📊 Statistiques'],['users','👤 Utilisateurs'],['boosts','🚀 Boosts'],['ads','📣 Publicités'],['reports','🚩 Signalements']];
-  const pb=S.boosts.filter(b=>b.status==='pending').length;
+  const pb=S.boosts.filter(b=>b.status==='pending').length;const pa=S.ads.filter(a=>a.status==='pending').length;
   let body='';
   if(tab==='stats'){
     const rev=S.boosts.filter(b=>b.status==='ok').reduce((s,b)=>s+b.amount,0);
+    const revAds=S.ads.filter(a=>a.status==='ok'&&a.amount).reduce((s,a)=>s+a.amount,0);
     const wk=Date.now()-7*86400e3;
-    const st=[['Utilisateurs',S.users.length],['Nouveaux (7 j)',S.users.filter(u=>u.joined>wk).length],['Publications',S.posts.length],['Groupes',S.groups.length],['Annonces Marché',S.listings.length],['Amitiés',S.friends.length],['Boosts en attente',pb],['Revenus boosts',fmtF(rev)],['Pubs actives',S.ads.filter(a=>a.active).length],['Vues des pubs',S.ads.reduce((s,a)=>s+(a.views||0),0)]];
+    const st=[['Utilisateurs',S.users.length],['Nouveaux (7 j)',S.users.filter(u=>u.joined>wk).length],['Publications',S.posts.length],['Groupes',S.groups.length],['Annonces Marché',S.listings.length],['Amitiés',S.friends.length],['Pages pro',S.pages.length],['Comptes pro',S.users.filter(u=>u.pro).length],['Boosts en attente',pb],['Campagnes en attente',pa],['Revenus boosts',fmtF(rev)],['Revenus publicités',fmtF(revAds)],['Pubs en cours',S.ads.filter(isAdLive).length],['Vues des pubs',S.ads.reduce((s,a)=>s+(a.views||0),0)]];
     body=`<div class="stats">${st.map(s=>`<div class="stat"><b>${s[1]}</b><span class="muted small">${s[0]}</span></div>`).join('')}</div>
     ${ONLINE?'':`<div class="card"><h3>Données</h3><p class="muted small">Mode démo : les données sont enregistrées sur cet appareil.</p><button class="btn red full" onclick="resetDemo()">Réinitialiser toutes les données</button></div>`}`;
   }
@@ -773,17 +977,19 @@ function adminView(tab){
     ${b.status==='pending'?`<div class="row" style="margin-top:6px"><button class="btn pri sm" onclick="validateBoost('${b.id}',true)">✔ Paiement reçu</button><button class="btn red sm" onclick="validateBoost('${b.id}',false)">Refuser</button></div>`:''}</div></div>`;}).join('')||empty('Aucune demande de boost.')}</div>`;
   }
   if(tab==='ads'){
-    body=`<div class="card"><h3>Nouvelle campagne sponsorisée</h3>
+    const pend=S.ads.filter(a=>a.status==='pending');
+    body=`<div class="card"><h3>⏳ Campagnes à valider (${pend.length})</h3>${pend.map(a=>{const u=U(a.owner)||{name:'?'};return `<div class="list-item" style="align-items:flex-start"><div class="grow"><b>${esc(a.code)}</b> · ${esc(a.title)}<div class="small">${esc(a.advertiser)} (par <a href="#/profile/${a.owner}">${esc(u.name)}</a>) · ${esc(a.offer)} · <b>${fmtF(a.amount)}</b></div><div class="muted small">${a.ref?'Réf. Wave : '+esc(a.ref):'Pas encore de référence'} · ${ago(a.ts)}</div>${a.img?`<img src="${esc(a.img)}" style="width:100%;max-height:160px;object-fit:cover;border-radius:8px;margin-top:6px">`:''}<div class="row" style="margin-top:6px;flex-wrap:wrap"><button class="btn pri sm" onclick="validateAd('${a.id}',true)">✔ Dépôt reçu, activer</button><button class="btn red sm" onclick="validateAd('${a.id}',false)">Refuser</button><a class="btn sm" href="#/chat/${a.owner}">💬</a></div></div></div>`;}).join('')||'<p class="muted small">Aucune campagne en attente.</p>'}</div>
+    <div class="card"><h3>Nouvelle campagne sponsorisée (admin)</h3>
     <input id="aadv" placeholder="Nom de l'annonceur"><input id="atitle" placeholder="Titre de l'annonce"><textarea id="atext" class="big" placeholder="Texte de l'annonce"></textarea>
     <input id="acontact" placeholder="WhatsApp (2250700000000) ou lien https://"><input id="acta" placeholder="Texte du bouton (ex. Commander)">
     <label class="btn full" style="margin:0 0 8px">📷 Image de la pub<input type="file" accept="image/*" hidden onchange="pickImg(this,d=>{adImg=d;setPrev('aprev',d)})"></label><img id="aprev" class="imgprev" alt="">
     <button class="btn acc full" onclick="createAd()">Lancer la campagne</button></div>
-    <div class="card"><h3>Campagnes</h3>${S.ads.map(a=>`<div class="list-item"><div class="grow"><b>${esc(a.title)}</b> ${a.active?'<span class="tag ok">Active</span>':'<span class="tag wait">En pause</span>'}<div class="muted small">${esc(a.advertiser)} · ${a.views||0} vues · ${a.clicks||0} clics</div></div><button class="btn sm" onclick="toggleAd('${a.id}')">${a.active?'Pause':'Activer'}</button><button class="btn red sm" onclick="deleteAd('${a.id}')">🗑️</button></div>`).join('')||empty('Aucune campagne')}</div>`;
+    <div class="card"><h3>Toutes les campagnes</h3>${S.ads.filter(a=>a.status!=='pending').map(a=>`<div class="list-item"><div class="grow"><b>${esc(a.title)}</b> ${adStatus(a)}<div class="muted small">${esc(a.advertiser)} · ${a.views||0} vues · ${a.clicks||0} clics${a.endsAt?' · fin '+new Date(a.endsAt).toLocaleDateString('fr-FR'):''}</div></div><button class="btn sm" onclick="toggleAd('${a.id}')">${a.active?'Pause':'Activer'}</button><button class="btn red sm" onclick="deleteAd('${a.id}')">🗑️</button></div>`).join('')||empty('Aucune campagne')}</div>`;
   }
   if(tab==='reports'){
     body=`<div class="card">${S.reports.map(r=>{const p=S.posts.find(x=>x.id===r.postId);const u=U(r.user)||{name:'?'};const a=p?U(p.author):null;return `<div class="list-item" style="align-items:flex-start"><div class="grow"><span class="tag no">${esc(r.reason)}</span> <span class="muted small">par ${esc(u.name)} · ${ago(r.ts)}</span>${p?`<div class="small" style="margin-top:4px"><b>${esc(a?a.name:'?')}</b> : ${esc((p.text||'Photo').slice(0,120))}</div>`:''}<div class="row" style="margin-top:6px">${p?`<button class="btn red sm" onclick="deletePost('${p.id}')">Supprimer la publication</button><a class="btn sm" href="#/post/${p.id}">Voir</a>`:''}<button class="btn sm" onclick="dismissReport('${r.id}')">Ignorer</button></div></div></div>`;}).join('')||empty('Aucun signalement 👍')}</div>`;
   }
-  return `<h2 style="margin-bottom:8px">🛡️ Administration</h2><div class="tabs">${T.map(t=>`<button class="chip ${t[0]===tab?'on':''}" onclick="go('#/admin/${t[0]}')">${t[1]}${t[0]==='boosts'&&pb?` (${pb})`:''}${t[0]==='reports'&&S.reports.length?` (${S.reports.length})`:''}</button>`).join('')}</div>${body}`;
+  return `<h2 style="margin-bottom:8px">🛡️ Administration</h2><div class="tabs">${T.map(t=>`<button class="chip ${t[0]===tab?'on':''}" onclick="go('#/admin/${t[0]}')">${t[1]}${t[0]==='boosts'&&pb?` (${pb})`:''}${t[0]==='ads'&&pa?` (${pa})`:''}${t[0]==='reports'&&S.reports.length?` (${S.reports.length})`:''}</button>`).join('')}</div>${body}`;
 }
 function toggleBlock(id){const u=U(id);if(!u||u.isAdmin)return;if(!u.blocked&&!confirm(`Suspendre ${u.name} ?`))return;u.blocked=!u.blocked;save();render();}
 function validateBoost(id,ok){
@@ -795,7 +1001,7 @@ function validateBoost(id,ok){
 function createAd(){
   const adv=$('#aadv').value.trim(),title=$('#atitle').value.trim(),text=$('#atext').value.trim();
   if(!adv||!title)return toast("Indiquez l'annonceur et le titre");
-  S.ads.unshift({id:uid(),advertiser:adv,title,text,img:adImg,contact:$('#acontact').value.trim(),cta:$('#acta').value.trim()||'En savoir plus',active:true,views:0,clicks:0,ts:Date.now()});
+  S.ads.unshift({id:uid(),advertiser:adv,title,text,img:adImg,contact:$('#acontact').value.trim(),cta:$('#acta').value.trim()||'En savoir plus',status:'ok',active:true,views:0,clicks:0,ts:Date.now()});
   adImg=null;save();render();toast('Campagne lancée 📣');
 }
 function toggleAd(id){const a=S.ads.find(x=>x.id===id);a.active=!a.active;save();render();}
@@ -842,13 +1048,18 @@ function render(){
     case 'notifs':html=notifsView();break;
     case 'search':html=searchView();break;
     case 'menu':html=menuView();break;
+    case 'pages':html=pagesView();break;
+    case 'page':html=pageView(param);break;
+    case 'page-edit':html=pageEditView(param||'new');break;
+    case 'ad-new':html=adNewView(param||'me');break;
+    case 'my-ads':html=myAdsView();break;
     case 'admin':html=me.isAdmin?adminView(param||'stats'):feedView();break;
     default:html=feedView();
   }
   $('#app').innerHTML=shell(html);
   const cb=$('#chatbox');if(cb)cb.scrollTop=cb.scrollHeight;
 }
-window.addEventListener('hashchange',()=>{const m=$('#modal');m.classList.add('hidden');m.innerHTML='';render();window.scrollTo(0,0);});
+window.addEventListener('hashchange',()=>{const m=$('#modal');m.classList.add('hidden');m.innerHTML='';render();window.scrollTo(0,0);if(afterNav){const f=afterNav;afterNav=null;f();}});
 if('serviceWorker' in navigator&&location.protocol==='https:')navigator.serviceWorker.register('sw.js').catch(()=>{});
 load();render();
 </script>

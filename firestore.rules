@@ -1,0 +1,99 @@
+rules_version = '2';
+// Règles de sécurité SouciNana — à coller dans Firebase > Firestore Database > Règles, puis "Publier".
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function signedIn() { return request.auth != null; }
+    function me() { return request.auth.uid; }
+    function isAdmin() { return signedIn() && request.auth.token.email == 'admin@soucinana.app'; }
+    function changed() { return request.resource.data.diff(resource.data).affectedKeys(); }
+    function onlyKeys(keys) { return changed().hasOnly(keys); }
+
+    match /users/{id} {
+      allow read: if signedIn();
+      allow create: if isAdmin() || (signedIn() && me() == id
+                    && request.resource.data.isAdmin == false && request.resource.data.blocked == false);
+      allow update: if isAdmin() || (signedIn() && me() == id && !changed().hasAny(['isAdmin', 'blocked']));
+      allow delete: if isAdmin();
+    }
+
+    match /posts/{id} {
+      allow read: if signedIn();
+      allow create: if signedIn() && request.resource.data.author == me() && request.resource.data.boostedUntil == 0
+                    && (request.resource.data.get('pageId', null) == null
+                        || get(/databases/$(database)/documents/pages/$(request.resource.data.pageId)).data.owner == me());
+      allow update: if isAdmin()
+                    || (signedIn() && resource.data.author == me() && !changed().hasAny(['boostedUntil', 'author', 'pageId']))
+                    || (signedIn() && onlyKeys(['likes', 'comments', 'shares']));
+      allow delete: if isAdmin() || (signedIn() && resource.data.author == me());
+    }
+
+    match /groups/{id} {
+      allow read: if signedIn();
+      allow create: if signedIn() && request.resource.data.owner == me();
+      allow update: if isAdmin() || (signedIn() && resource.data.owner == me()) || (signedIn() && onlyKeys(['members']));
+      allow delete: if isAdmin();
+    }
+
+    match /listings/{id} {
+      allow read: if signedIn();
+      allow create: if signedIn() && request.resource.data.seller == me();
+      allow update, delete: if isAdmin() || (signedIn() && resource.data.seller == me());
+    }
+
+    match /ads/{id} {
+      allow read: if signedIn();
+      // L'annonceur crée sa campagne "en attente" ; seul l'admin peut l'activer
+      allow create: if isAdmin() || (signedIn() && request.resource.data.owner == me()
+                    && request.resource.data.status == 'pending' && request.resource.data.active == false);
+      allow update: if isAdmin() || (signedIn() && onlyKeys(['views', 'clicks']));
+      allow delete: if isAdmin() || (signedIn() && resource.data.owner == me() && resource.data.status == 'pending');
+    }
+
+    match /pages/{id} {
+      allow read: if signedIn();
+      allow create: if signedIn() && request.resource.data.owner == me();
+      allow update: if isAdmin() || (signedIn() && resource.data.owner == me() && request.resource.data.owner == me());
+      allow delete: if isAdmin() || (signedIn() && resource.data.owner == me());
+    }
+
+    match /follows/{id} {
+      allow read: if signedIn();
+      allow create: if signedIn() && request.resource.data.from == me();
+      allow delete: if signedIn() && resource.data.from == me();
+    }
+
+    match /friends/{id} {
+      allow read: if signedIn();
+      allow create: if signedIn() && (request.resource.data.a == me() || request.resource.data.b == me());
+      allow delete: if signedIn() && (resource.data.a == me() || resource.data.b == me());
+    }
+
+    match /requests/{id} {
+      allow read: if signedIn();
+      allow create: if signedIn() && request.resource.data.from == me();
+      allow delete: if signedIn() && (resource.data.from == me() || resource.data.to == me());
+    }
+
+    match /messages/{id} {
+      allow read: if signedIn() && (resource.data.from == me() || resource.data.to == me());
+      allow create: if signedIn() && request.resource.data.from == me();
+      allow update: if signedIn() && resource.data.to == me() && onlyKeys(['read']);
+    }
+
+    match /notifs/{id} {
+      allow read, update, delete: if signedIn() && (resource.data.to == me() || (resource.data.to == 'ADMIN' && isAdmin()));
+      allow create: if signedIn();
+    }
+
+    match /boosts/{id} {
+      allow read: if isAdmin() || (signedIn() && resource.data.user == me());
+      allow create: if signedIn() && request.resource.data.user == me() && request.resource.data.status == 'pending';
+      allow update, delete: if isAdmin();
+    }
+
+    match /reports/{id} {
+      allow create: if signedIn() && request.resource.data.user == me();
+      allow read, delete: if isAdmin();
+    }
+  }
+}
