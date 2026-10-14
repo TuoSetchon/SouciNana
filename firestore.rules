@@ -42,11 +42,14 @@ service cloud.firestore {
 
     match /ads/{id} {
       allow read: if signedIn();
-      // L'annonceur crée sa campagne "en attente" ; seul l'admin peut l'activer
+      // L'annonceur crée sa campagne "en cours d'examen" ; seul l'admin peut l'approuver, confirmer le paiement et l'activer
       allow create: if isAdmin() || (signedIn() && request.resource.data.owner == me()
-                    && request.resource.data.status == 'pending' && request.resource.data.active == false);
-      allow update: if isAdmin() || (signedIn() && onlyKeys(['views', 'clicks']));
-      allow delete: if isAdmin() || (signedIn() && resource.data.owner == me() && resource.data.status == 'pending');
+                    && request.resource.data.status == 'review' && request.resource.data.active == false
+                    && request.resource.data.paid == false);
+      allow update: if isAdmin()
+                    || (signedIn() && onlyKeys(['views', 'clicks', 'viewers']))
+                    || (signedIn() && resource.data.owner == me() && resource.data.status == 'ok' && onlyKeys(['paused']));
+      allow delete: if isAdmin() || (signedIn() && resource.data.owner == me() && resource.data.status != 'ok');
     }
 
     match /pages/{id} {

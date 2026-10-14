@@ -203,6 +203,7 @@ label.lbl{display:block;font-size:13px;color:var(--mu);margin:4px 0 4px}
 .evdate{flex:0 0 52px;height:56px;border-radius:10px;background:var(--pri2);color:var(--pri);display:flex;flex-direction:column;align-items:center;justify-content:center;font-weight:800;line-height:1}
 .evdate small{font-size:11px;text-transform:uppercase}
 .evcover{height:150px;background:linear-gradient(135deg,var(--acc),#e8505b) center/cover;border-radius:10px 10px 0 0;margin:-12px -12px 10px}
+@media print{header.top,nav.bottom,.back,.demo,.btn{display:none!important}main{padding:0}.card{box-shadow:none}}
 </style>
 </head>
 <body>
@@ -233,9 +234,13 @@ const CONFIG = {
   adminWhatsApp: "2250544076062",     // WhatsApp principal de l'admin (format international, sans +)
   adminWhatsApp2: "2250788589231",    // WhatsApp secondaire
   boostOffers: [ {days:1, price:500}, {days:3, price:1200}, {days:7, price:2500} ],
-  // Tarifs des campagnes publicitaires (modifiables)
-  adOffers: [ {days:7, price:5000, label:"1 semaine"}, {days:14, price:9000, label:"2 semaines"}, {days:30, price:15000, label:"1 mois"} ],
-  storageKey: "soucinana_v4"
+  // Publicités : budget minimum par jour et coût pour 1 000 affichages (modifiables)
+  ads: { minDaily: 500, cpm: 1000 },
+  // Moyens de paiement acceptés (ajoutez Orange Money, MTN MoMo, Moov Money avec leurs numéros)
+  payments: [
+    { id: "wave", name: "Wave", icon: "🌊", numbers: ["05 44 07 60 62", "07 08 50 77 12"] }
+  ],
+  storageKey: "soucinana_v5"
 };
 
 const ONLINE = !!(FIREBASE_CONFIG.apiKey && window.firebase);
@@ -247,6 +252,15 @@ const RX=Object.fromEntries(REACTS.map(r=>[r[0],r]));
 const BGS={g:'linear-gradient(135deg,#0b7a4b,#36b37e)',o:'linear-gradient(135deg,#f28c28,#e8505b)',b:'linear-gradient(135deg,#1e3c72,#2a5298)',v:'linear-gradient(135deg,#8e2de2,#4a00e0)',r:'linear-gradient(135deg,#e52d27,#b31217)',n:'linear-gradient(135deg,#232526,#414345)',ci:'linear-gradient(90deg,#f77f00 33.3%,#ffffff 33.3% 66.6%,#009e60 66.6%)'};
 const FEELINGS=[['😊','heureux(se)'],['🥰','amoureux(se)'],['🥳','en fête'],['😎','en forme'],['🙏','reconnaissant(e)'],['🙌','béni(e)'],['💪','motivé(e)'],['😴','fatigué(e)'],['😢','triste'],['😡','énervé(e)'],['🤔','pensif(ve)'],['⚽','devant un match'],['🍽️','en train de manger'],['🚌','en voyage'],['📚','en train de réviser'],['🎶','en train d\'écouter de la musique']];
 const ALERTS={elec:['⚡',"Coupure d'électricité",'#e8a317'],eau:['💧',"Coupure d'eau",'#1a73e8'],pharma:['💊','Pharmacie de garde','#0b7a4b'],perdu:['🔎','Objet / personne perdu(e)','#8e44ad'],deces:['🕊️','Avis de décès','#3c4043'],route:['🚧','Route / circulation','#e9710f'],secu:['🚨','Sécurité','#d93025'],info:['📢','Annonce officielle','#1e3c72']};
+const INTERESTS=['Mode & beauté','Sport','Football','Musique','Cuisine','Business','Éducation','Religion','Technologie','Téléphones','Auto & moto','Immobilier','Agriculture','Santé & bien-être','Voyage','Cinéma & séries','Événements','Emploi'];
+const OBJECTIVES={
+  notoriete:['👁️','Notoriété',"Montrer votre marque au plus grand nombre de personnes",['page','whatsapp','link']],
+  messages:['💬','Messages WhatsApp','Recevoir des messages de clients sur WhatsApp',['whatsapp']],
+  appels:['📞','Appels','Recevoir des appels de clients',['call']],
+  trafic:['🔗','Trafic','Envoyer des personnes vers votre page ou votre site',['page','link']],
+  ventes:['🛒','Ventes','Obtenir des commandes',['order','whatsapp','link']],
+  interactions:['👍','Interactions','Faire réagir, commenter et partager une de vos publications',['post']]
+};
 const PAGE_CATS=['Commerce','Restaurant / Maquis','Mode & Beauté','Services','Éducation','Santé','Transport','Immobilier','BTP / Construction','Événementiel','Agriculture','Association / Religion','Média','Autre'];
 const CATS=['Tout','Véhicules','Électronique','Mode','Maison','Alimentation','Immobilier','Services','Emploi','Autres'];
 
@@ -264,6 +278,7 @@ function color(s){let h=0;for(const c of String(s))h=(h*37+c.charCodeAt(0))%360;
 const initials = n => String(n||'?').split(' ').filter(Boolean).slice(0,2).map(w=>w[0]).join('').toUpperCase();
 const first = n => String(n||'').split(' ')[0];
 const go = h => { location.hash = h; };
+let afterNav=null;
 const nav = h => { if(location.hash===h)render(); else go(h); };
 function navThen(h,f){ if(location.hash===h){render();f();} else {afterNav=f;go(h);} }
 const empty = t => `<div class="empty">${t}</div>`;
@@ -436,12 +451,12 @@ function seed(){
   const du=(id,name,city,quartier,bio,extra={})=>({id,name,phone:'',pw:'',city,quartier,bio,avatar:null,cover:null,joined:now-30*D,demo:true,blocked:false,saved:[],hidden:[],...extra});
   const users=[
     {id:'admin',name:'Administrateur '+CONFIG.appName,phone:CONFIG.adminLogin,pw:hashPw(CONFIG.adminPassword),city:'Boundiali',quartier:'',bio:'Compte officiel de '+CONFIG.appName+' 🇨🇮',avatar:null,cover:null,joined:now-60*D,isAdmin:true,blocked:false,saved:[],hidden:[]},
-    du('u1','Fatou Coulibaly','Boundiali','Grand marché','Commerçante 🛍️ Pagnes et accessoires',{pro:true,proCat:'Mode & Beauté',proJob:'Vendeuse de pagnes',proContact:'0700000001',work:'Fatou Pagnes Boutique',hometown:'Boundiali'}),
-    du('u2','Moussa Silué','Korhogo','Soba','Footballeur du dimanche ⚽',{work:'Mécanicien',hometown:'Korhogo'}),
-    du('u3','Awa Ouattara','Abidjan','Cocody','Étudiante en droit 📚',{school:'Université Félix Houphouët-Boigny',hometown:'Odienné',birthday:bday}),
-    du('u4','Ibrahim Koné','Bouaké','Air France','Mécanicien moto 🔧',{work:'Garage Koné & Frères'}),
-    du('u5','Mariam Soro','Boundiali','Résidentiel','Enseignante 👩🏾‍🏫',{work:'Enseignante',school:'ENS Abidjan'}),
-    du('u6','Drissa Touré','Yamoussoukro','Habitat','Réparateur de téléphones 📱',{pro:true,proCat:'Services',proJob:'Réparateur de téléphones',proContact:'0700000006'})
+    du('u1','Fatou Coulibaly','Boundiali','Grand marché','Commerçante 🛍️ Pagnes et accessoires',{gender:'f',birthday:'1990-03-12',interests:['Mode & beauté','Business'],pro:true,proCat:'Mode & Beauté',proJob:'Vendeuse de pagnes',proContact:'0700000001',work:'Fatou Pagnes Boutique',hometown:'Boundiali'}),
+    du('u2','Moussa Silué','Korhogo','Soba','Footballeur du dimanche ⚽',{gender:'m',birthday:'1995-07-02',interests:['Football','Sport','Auto & moto'],work:'Mécanicien',hometown:'Korhogo'}),
+    du('u3','Awa Ouattara','Abidjan','Cocody','Étudiante en droit 📚',{gender:'f',interests:['Mode & beauté','Éducation','Musique'],school:'Université Félix Houphouët-Boigny',hometown:'Odienné',birthday:bday}),
+    du('u4','Ibrahim Koné','Bouaké','Air France','Mécanicien moto 🔧',{gender:'m',birthday:'1988-11-20',interests:['Auto & moto','Business'],work:'Garage Koné & Frères'}),
+    du('u5','Mariam Soro','Boundiali','Résidentiel','Enseignante 👩🏾‍🏫',{gender:'f',birthday:'1985-01-30',interests:['Éducation','Religion','Cuisine'],work:'Enseignante',school:'ENS Abidjan'}),
+    du('u6','Drissa Touré','Yamoussoukro','Habitat','Réparateur de téléphones 📱',{gender:'m',birthday:'1999-05-15',interests:['Téléphones','Technologie','Football'],pro:true,proCat:'Services',proJob:'Réparateur de téléphones',proContact:'0700000006'})
   ];
   const P=(id,author,text,ago,city,extra={})=>({id,author,text,imgs:[],ts:now-ago,likes:[],reactions:{},comments:[],groupId:null,pageId:null,audience:'public',city,kind:'post',boostedUntil:0,shares:0,...extra});
   const C=(author,text,ago,parent)=>({id:uid(),author,text,ts:now-ago,parent:parent||null});
@@ -513,6 +528,8 @@ function authView(mode){
     <input id="rphone" placeholder="Numéro de téléphone" inputmode="tel" autocomplete="username">
     <input id="rcity" list="cities" placeholder="Votre ville (ex. Abidjan, Bouaké, Boundiali…)">${cityList()}
     <input id="rq" placeholder="Votre quartier (facultatif)">
+    <div class="row"><select id="rgender" style="flex:1"><option value="">Sexe</option><option value="f">Femme</option><option value="m">Homme</option></select><input id="rbday" type="date" style="flex:1.3" title="Date de naissance"></div>
+    <p class="muted tiny" style="margin:-4px 0 8px">Date de naissance : elle n'est pas affichée publiquement.</p>
     <input id="rpw" type="password" placeholder="Mot de passe (6 caractères min.)" autocomplete="new-password">
     <button class="btn pri full" onclick="doRegister()">S'inscrire</button>
     <p class="muted center" style="margin-top:12px"><a href="#/login">J'ai déjà un compte</a></p>`}
@@ -534,9 +551,12 @@ async function doRegister(){
   if(name.length<3)return toast('Entrez votre nom complet');
   if(!/^\+?\d{8,14}$/.test(ph))return toast('Numéro de téléphone invalide');
   if(city.length<2)return toast('Indiquez votre ville');
+  const gender=$('#rgender').value,bday=$('#rbday').value;
+  if(!gender)return toast('Indiquez votre sexe');
+  if(!bday||ageOf(bday)<13)return toast('Indiquez votre date de naissance (13 ans minimum)');
   if(pw.length<6)return toast('Mot de passe : 6 caractères minimum');
   const welcome=`Bienvenue sur ${CONFIG.appName}, ${first(name)} ! Ajoutez une photo de profil et retrouvez vos amis.`;
-  const profile={name,city,quartier:q,bio:'',avatar:null,cover:null,joined:Date.now(),isAdmin:false,blocked:false,saved:[],hidden:[]};
+  const profile={name,city,quartier:q,gender,birthday:bday,interests:[],bio:'',avatar:null,cover:null,joined:Date.now(),isAdmin:false,blocked:false,saved:[],hidden:[]};
   if(ONLINE){
     busy(true);
     try{
@@ -586,7 +606,7 @@ function createMenu(){
   <button class="opt" onclick="closeModal();go('#/event-new')">📅 Événement</button>
   <button class="opt" onclick="closeModal();navThen('#/market',sellModal)">🛒 Vendre un article</button>
   <button class="opt" onclick="closeModal();go('#/page-edit/new')">📄 Page professionnelle</button>
-  <button class="opt" onclick="closeModal();go('#/ad-new/me')">📣 Publicité</button>`);
+  <button class="opt" onclick="closeModal();AD=null;go('#/ad-new/me')">📣 Campagne publicitaire</button>`);
 }
 
 /* ================= AMIS (outils) ================= */
@@ -715,7 +735,7 @@ function sharedInner(o){
   ${o.text?`<div class="small" style="margin-top:6px">${fmtText(o.text.length>200?o.text.slice(0,200)+'…':o.text)}</div>`:''}
   ${im.length&&!(SAVER&&!revealed.has(o.id))?`<img src="${esc(im[0])}" style="width:100%;max-height:260px;object-fit:cover;border-radius:8px;margin-top:6px" alt="">`:''}`;
 }
-function postHead(p){
+function postHead(p,spons){
   const a=U(p.author)||{name:'Utilisateur'};const pg=p.pageId?P(p.pageId):null;const g=p.groupId?S.groups.find(x=>x.id===p.groupId):null;
   const tags=(p.tags||[]).map(U).filter(Boolean);
   let nm=pg?`<a class="name" href="#/page/${pg.id}">${esc(pg.name)}</a>`:`<a class="name" href="#/profile/${p.author}">${esc(a.name)}</a>${a.pro?' <span class="tag acc">Pro</span>':''}`;
@@ -725,7 +745,7 @@ function postHead(p){
   if(p.place)nm+=` <span class="muted">à</span> <b>${esc(p.place)}</b>`;
   if(g)nm+=` <span class="muted">▸</span> <a class="name" href="#/group/${g.id}">${esc(g.name)}</a>`;
   const av=pg?`<a href="#/page/${pg.id}">${pageAvatar(pg)}</a>`:`<a href="#/profile/${p.author}">${avatar(a)}</a>`;
-  return `<div class="post-head">${av}<div class="grow">${nm}<div class="muted tiny">${ago(p.ts)}${p.editedAt?' · Modifié':''} · ${p.audience==='friends'?'👥':'🌍'}${p.city?' · 📍 '+esc(p.city):''}${p.boostedUntil>Date.now()?' · <span class="tag acc">🚀 Sponsorisé</span>':''}</div></div>
+  return `<div class="post-head">${av}<div class="grow">${nm}<div class="muted tiny">${ago(p.ts)}${p.editedAt?' · Modifié':''} · ${p.audience==='friends'?'👥':'🌍'}${p.city?' · 📍 '+esc(p.city):''}${p.boostedUntil>Date.now()||spons?' · <span class="tag acc">Sponsorisé</span>':''}</div></div>
   <button class="ic" style="background:none" onclick="postMenu('${p.id}')">⋯</button></div>`;
 }
 function reactStats(p){
@@ -737,12 +757,12 @@ function reactStats(p){
   const lbl=n?(mineR?(n===1?'Vous':`Vous et ${n-1} autre${n>2?'s':''}`):String(n)):'';
   return `<div class="post-stats muted small"><span class="remo" onclick="whoReacted('${p.id}')">${n?`<span>${top.join('</span><span>')}</span>&nbsp;&nbsp;${lbl}`:''}</span><span>${cm?`<a class="muted" href="#/post/${p.id}">${plural(cm,'commentaire')}</a>`:''}${p.shares?` · ${plural(p.shares,'partage')}`:''}</span></div>`;
 }
-function postCard(p,full){
+function postCard(p,full,spons){
   const me=ME();const m=reactsOf(p);const mine=m[me.id];const r=mine?RX[mine]:null;
   const al=p.kind==='alert'&&ALERTS[p.alert]?ALERTS[p.alert]:null;
   const sh=p.sharedFrom?S.posts.find(x=>x.id===p.sharedFrom):null;
-  return `<article class="card post" style="padding-left:0;padding-right:0">
-  ${postHead(p)}
+  return `<article class="card post ${spons?'ad':''}" style="padding-left:0;padding-right:0">
+  ${postHead(p,spons)}
   ${al?`<div class="alert-bn" style="background:${al[2]}">${al[0]} ALERTE · ${esc(al[1])}${p.city?' · '+esc(p.city):''}</div>`:''}
   ${textBlock(p)}${pollBlock(p)}${imgGrid(p)}
   ${p.sharedFrom?`<div class="shared" onclick="go('#/post/${p.sharedFrom}')">${sh?sharedInner(sh):'<span class="muted small">Cette publication n\'est plus disponible.</span>'}</div>`:''}
@@ -916,7 +936,18 @@ function canSee(p,me){
   if(p.audience==='friends'&&p.author!==me.id&&!isFriend(me.id,p.author))return false;
   return true;
 }
-const isAdLive=a=>a.active&&a.status!=='pending'&&a.status!=='refused'&&(!a.endsAt||a.endsAt>Date.now());
+const budgetDone=a=>a.maxViews&&(a.views||0)>=a.maxViews;
+const isAdLive=a=>{const n=Date.now();return a.active&&a.status==='ok'&&!a.paused&&(!a.startsAt||a.startsAt<=n)&&(!a.endsAt||a.endsAt>n)&&!budgetDone(a);};
+function ageOf(b){if(!b)return null;const d=new Date(b+'T12:00'),n=new Date();let a=n.getFullYear()-d.getFullYear();if(n.getMonth()<d.getMonth()||(n.getMonth()===d.getMonth()&&n.getDate()<d.getDate()))a--;return a;}
+function audienceMatch(a,u){
+  if(a.targetCity&&a.targetCity!==u.city)return false;
+  const t=a.audience;if(!t)return true;
+  if(t.cities&&t.cities.length&&!t.cities.includes(u.city))return false;
+  if(t.gender&&t.gender!=='all'&&u.gender&&u.gender!==t.gender)return false;
+  const age=ageOf(u.birthday);if(age!==null&&(age<(t.ageMin||13)||age>(t.ageMax||99)))return false;
+  if(t.interests&&t.interests.length&&u.interests&&u.interests.length&&!t.interests.some(i=>u.interests.includes(i)))return false;
+  return true;
+}
 const seenAds=new Set();
 function feedView(){
   const me=ME();const now=Date.now();
@@ -925,9 +956,9 @@ function feedView(){
   if(feedTab==='friends')posts=posts.filter(p=>p.author===me.id||isFriend(me.id,p.author));
   if(feedTab==='alerts')posts=posts.filter(p=>p.kind==='alert'&&p.city===me.city);
   const ordered=feedTab==='all'?[...posts.filter(p=>p.boostedUntil>now),...posts.filter(p=>!(p.boostedUntil>now))]:posts;
-  const ads=S.ads.filter(a=>isAdLive(a)&&(!a.targetCity||a.targetCity===me.city));
+  const ads=S.ads.filter(a=>isAdLive(a)&&audienceMatch(a,me)&&a.owner!==me.id);
   const out=[];let ai=0,seen=false;
-  const show=a=>{if(!seenAds.has(a.id)){seenAds.add(a.id);a.views=(a.views||0)+1;seen=true;}out.push(adCard(a));};
+  const show=a=>{const c=adCard(a);if(!c)return;if(!seenAds.has(a.id)){seenAds.add(a.id);a.views=(a.views||0)+1;if(!(a.viewers||[]).includes(me.id))a.viewers=[...(a.viewers||[]),me.id];seen=true;}out.push(c);};
   const alerts=S.posts.filter(p=>p.kind==='alert'&&p.city===me.city&&now-p.ts<2*864e5&&canSee(p,me)).length;
   ordered.forEach((p,i)=>{
     out.push(postCard(p));
@@ -958,21 +989,24 @@ function postView(id){
 }
 
 /* ================= PUBLICITÉ (cartes) ================= */
-const CTA_LABELS={whatsapp:'Contacter sur WhatsApp',order:'Commander sur WhatsApp',call:'Appeler',page:'Voir la page'};
+const CTA_LABELS={whatsapp:'Envoyer un message',order:'Commander',call:'Appeler',page:'Voir la page',link:'En savoir plus',post:''};
 function adHref(a){
   if(a.ctaType==='page'&&a.pageId)return '#/page/'+a.pageId;
   if(a.ctaType==='call')return 'tel:'+String(a.contact||'').replace(/[^\d+]/g,'');
+  if(a.ctaType==='link'){const l=String(a.link||'').trim();return /^https?:\/\//i.test(l)?esc(l):'';}
+  if(a.ctaType==='post')return '';
   return a.contact?contactHref(a.contact):'';
 }
 function adCard(a){
+  if(a.objective==='interactions'){const p=S.posts.find(x=>x.id===a.postId);return p?postCard(p,false,true):'';}
   const pg=a.pageId?P(a.pageId):null;const ow=!pg&&a.owner?U(a.owner):null;
   const av=pg?`<a href="#/page/${pg.id}">${pageAvatar(pg)}</a>`:ow?`<a href="#/profile/${ow.id}">${avatar(ow)}</a>`:`<span class="av" style="width:40px;height:40px;background:var(--acc)">📣</span>`;
   const nm=pg?`<a class="name" href="#/page/${pg.id}">${esc(pg.name)}</a>`:ow?`<a class="name" href="#/profile/${ow.id}">${esc(a.advertiser)}</a>`:`<b>${esc(a.advertiser)}</b>`;
   const href=adHref(a);const ext=href&&!href.startsWith('#');
-  return `<article class="card post ad" style="padding-left:0;padding-right:0"><div class="post-head">${av}<div class="grow">${nm}<div class="muted tiny">Sponsorisé · 📣${a.targetCity?' · 📍 '+esc(a.targetCity):''}</div></div></div>
-  <div class="post-text"><b>${esc(a.title)}</b>${a.text?'<br>'+fmtText(a.text):''}</div>
-  ${a.img?(SAVER&&!revealed.has(a.id)?`<button class="imgph" onclick="revealed.add('${a.id}');render()">📷 Image masquée · Touchez pour afficher</button>`:`<img class="post-img" style="width:100%;max-height:520px;object-fit:cover;display:block;padding:0" src="${esc(a.img)}" alt="">`):''}
-  ${href?`<div style="padding:8px 12px 4px"><a class="btn acc full" style="margin:0" href="${href}" ${ext?'target="_blank" rel="noopener"':''} onclick="adClick('${a.id}')">${esc(a.cta||'En savoir plus')}</a></div>`:''}</article>`;
+  return `<article class="card post ad" style="padding-left:0;padding-right:0"><div class="post-head">${av}<div class="grow">${nm}<div class="muted tiny">Sponsorisé · 📣</div></div></div>
+  <div class="post-text">${a.text?fmtText(a.text):''}</div>
+  ${a.img?(SAVER&&!revealed.has(a.id)?`<button class="imgph" onclick="revealed.add('${a.id}');render()">📷 Image masquée · Touchez pour afficher</button>`:`<img style="width:100%;max-height:520px;object-fit:cover;display:block;padding:0" src="${esc(a.img)}" alt="">`):''}
+  <div class="row" style="padding:10px 12px;background:var(--in);margin-top:${a.img?0:6}px"><div class="grow"><b>${esc(a.title)}</b>${pg?`<div class="muted tiny">${esc(pg.cat)}${pg.city?' · '+esc(pg.city):''}</div>`:''}</div>${href?`<a class="btn ${ext?'acc':'soft'} sm" href="${href}" ${ext?'target="_blank" rel="noopener"':''} onclick="adClick('${a.id}')">${esc(a.cta||'En savoir plus')}</a>`:''}</div></article>`;
 }
 function adClick(id){const a=S.ads.find(x=>x.id===id);if(a){a.clicks=(a.clicks||0)+1;save();}}
 
@@ -999,10 +1033,11 @@ function myBoostsModal(){
 }
 const statusTag = s => s==='ok'?'<span class="tag ok">Activé</span>':s==='refused'?'<span class="tag no">Refusé</span>':'<span class="tag wait">En attente</span>';
 function adsInfoModal(){
-  modal(`<h3>📣 Faire de la publicité</h3><p>Faites connaître votre commerce, votre école ou votre événement dans votre ville ou dans toute la Côte d'Ivoire.</p>
-  <div class="pay"><b>Deux options :</b><ol><li><b>Campagne sponsorisée</b> (dès ${fmtF(CONFIG.adOffers[0].price)} / ${esc(CONFIG.adOffers[0].label)}) : une annonce avec image et bouton de contact, diffusée dans le fil. Lancez-la vous-même depuis votre compte pro ou votre page.</li><li><b>Booster</b> une de vos publications (dès ${fmtF(CONFIG.boostOffers[0].price)}) via le menu ⋯ de la publication.</li></ol></div>
-  <button class="btn acc full" onclick="closeModal();go('#/ad-new/me')">🚀 Lancer une campagne</button>
-  <button class="btn full" onclick="closeModal();go('#/my-ads')">📊 Mes campagnes</button>
+  modal(`<h3>📣 Faire de la publicité</h3><p>Touchez des clients dans votre ville ou dans toute la Côte d'Ivoire, avec le budget de votre choix.</p>
+  <div class="pay"><ol><li>Choisissez un <b>objectif</b> (messages WhatsApp, appels, ventes, notoriété…)</li><li>Définissez votre <b>audience</b> : villes, âge, sexe, centres d'intérêt</li><li>Fixez votre <b>budget</b> (dès ${fmtF(CONFIG.ads.minDaily)} par jour) et vos <b>dates</b></li><li>Payez par ${CONFIG.payments.map(m=>esc(m.name)).join(', ')} : votre publicité est diffusée dès qu'elle est validée par l'administrateur.</li></ol></div>
+  <button class="btn acc full" onclick="closeModal();go('#/ad-new/me')">🚀 Créer une campagne</button>
+  <button class="btn full" onclick="closeModal();go('#/my-ads')">📊 Gestionnaire de publicités</button>
+  <button class="btn full" onclick="closeModal();go('#/billing')">🧾 Facturation</button>
   <p class="muted small center" style="margin-top:10px">Besoin d'aide ? Contactez l'administrateur :</p>
   <a class="btn acc full" href="https://wa.me/${esc(CONFIG.adminWhatsApp)}" target="_blank" rel="noopener">WhatsApp : 05 44 07 60 62</a>
   <a class="btn acc full" href="https://wa.me/${esc(CONFIG.adminWhatsApp2)}" target="_blank" rel="noopener">WhatsApp : 07 88 58 92 31</a>
@@ -1075,13 +1110,15 @@ function editProfileView(){
   <label class="lbl">Travail</label><input id="ework" value="${esc(me.work||'')}" placeholder="Ex. Enseignant, Commerçante…">
   <label class="lbl">Études</label><input id="eschool" value="${esc(me.school||'')}" placeholder="École, université…">
   <label class="lbl">Originaire de</label><input id="ehome" list="cities" value="${esc(me.hometown||'')}">
-  <label class="lbl">Date d'anniversaire</label><input id="ebday" type="date" value="${esc(me.birthday||'')}">
+  <label class="lbl">Date de naissance</label><input id="ebday" type="date" value="${esc(me.birthday||'')}">
+  <label class="lbl">Sexe</label><select id="egender"><option value="">—</option><option value="f" ${me.gender==='f'?'selected':''}>Femme</option><option value="m" ${me.gender==='m'?'selected':''}>Homme</option></select>
+  <label class="lbl">Centres d'intérêt</label><div class="row wrap" style="gap:6px;margin-bottom:8px">${INTERESTS.map(i=>`<label class="chip" style="display:inline-flex;gap:6px;align-items:center"><input type="checkbox" class="eint" value="${esc(i)}" style="width:auto;margin:0" ${(me.interests||[]).includes(i)?'checked':''}>${esc(i)}</label>`).join('')}</div>
   <button class="btn pri full" onclick="saveProfile()">Enregistrer</button></div>`;
 }
 function saveProfile(){
   const me=ME();const n=$('#ename').value.trim();if(n.length<3)return toast('Nom trop court');
   me.name=n;me.city=normCity($('#ecity').value);me.quartier=$('#eq').value.trim();me.bio=$('#ebio').value.trim();
-  me.work=$('#ework').value.trim();me.school=$('#eschool').value.trim();me.hometown=$('#ehome').value.trim();me.birthday=$('#ebday').value;
+  me.work=$('#ework').value.trim();me.school=$('#eschool').value.trim();me.hometown=$('#ehome').value.trim();me.birthday=$('#ebday').value;me.gender=$('#egender').value;me.interests=[...document.querySelectorAll('.eint:checked')].map(x=>x.value);
   save();toast('Profil mis à jour ✅');go('#/profile/'+me.id+'/about');
 }
 
@@ -1283,13 +1320,14 @@ function memoriesView(){
 /* ================= MENU ================= */
 function toggleSaver(){SAVER=!SAVER;lsSet('sn_saver',SAVER?'1':'0');revealed.clear();render();toast(SAVER?'Économie de données activée 📶':'Économie de données désactivée');}
 function menuView(){
-  const me=ME();const pend=S.boosts.filter(b=>b.status==='pending').length+S.reports.length+S.ads.filter(a=>a.status==='pending').length;
+  const me=ME();const pend=S.boosts.filter(b=>b.status==='pending').length+S.reports.length+S.ads.filter(a=>['review','pending','approved'].includes(a.status)).length;
   const G=[['#/friends','👥','Amis'],['#/pages','📄','Pages'],['#/groups','🫂','Groupes'],['#/market','🛒','Marketplace'],['#/events','📅','Événements'],['#/saved','🔖','Enregistrements'],['#/memories','🕰️','Souvenirs'],['#/messages','💬','Discussions']];
   return `<h2 style="margin:4px 0 8px">Menu</h2><a class="card row" href="#/profile/${me.id}" style="color:inherit">${avatar(me,48)}<div><b style="font-size:17px">${esc(me.name)}</b><div class="muted small">Voir votre profil · 📍 ${esc(me.city||'')}</div></div></a>
   <div class="mgrid">${G.map(g=>`<a href="${g[0]}"><span>${g[1]}</span>${g[2]}</a>`).join('')}</div>
   <div class="card menu">
     <a href="javascript:adsInfoModal()"><span>📣</span>Faire de la publicité</a>
-    <a href="#/my-ads"><span>📊</span>Mes campagnes publicitaires</a>
+    <a href="#/my-ads"><span>📊</span>Gestionnaire de publicités</a>
+    <a href="#/billing"><span>🧾</span>Facturation</a>
     <a href="javascript:myBoostsModal()"><span>🚀</span>Mes boosts</a>
     <a href="javascript:proModal()"><span>💼</span>${me.pro?'Mon compte professionnel':'Passer en compte professionnel'}</a>
     <a href="#/edit-profile"><span>⚙️</span>Paramètres du profil</a>
@@ -1395,89 +1433,193 @@ function savePro(off){
   save();closeModal();render();toast(off?'Vous êtes revenu(e) à un compte personnel':'Compte professionnel activé 💼');
 }
 
-/* ================= CAMPAGNES PUBLICITAIRES (libre-service) ================= */
+/* ================= GESTIONNAIRE DE PUBLICITÉS ================= */
 function adSources(){const me=ME();const s=[];if(me.pro)s.push({id:'me',name:me.name+' (compte pro)'});myPages().forEach(p=>s.push({id:p.id,name:'Page : '+p.name}));return s;}
-function waAdmin(a){
-  const msg=`Bonjour, je viens de lancer une campagne publicitaire sur ${CONFIG.appName}.\nCode : ${a.code}\nAnnonceur : ${a.advertiser}\nTitre : ${a.title}\nZone : ${a.targetCity||"Toute la Côte d'Ivoire"}\nDurée : ${a.offer}\nMontant : ${fmtF(a.amount)}${a.ref?'\nRéférence Wave : '+a.ref:'\nJe vous envoie le dépôt Wave.'}`;
-  return `https://wa.me/${CONFIG.adminWhatsApp}?text=${encodeURIComponent(msg)}`;
+const dayMs=864e5,todayStr=()=>new Date().toISOString().slice(0,10),addDays=(d,n)=>new Date(new Date(d+'T12:00').getTime()+n*dayMs).toISOString().slice(0,10);
+function adCalc(x){
+  const days=Math.max(1,Math.round((new Date(x.end+'T12:00')-new Date(x.start+'T12:00'))/dayMs)+1);
+  const total=Math.round(x.budgetType==='daily'?(+x.budget||0)*days:(+x.budget||0));
+  const views=Math.floor(total/CONFIG.ads.cpm*1000);
+  const reach=S.users.filter(u=>!u.blocked&&!u.isAdmin&&audienceMatch({audience:x.audience||{cities:x.cities,gender:x.gender,ageMin:x.ageMin,ageMax:x.ageMax,interests:x.interests}},u)).length;
+  return {days,total,views,reach};
 }
-let adDraftImg=null,afterNav=null;
+let AD=null;
+function newAdDraft(src){return {src,objective:'messages',title:'',text:'',img:null,ctaType:'whatsapp',contact:'',link:'',postId:'',cities:[],ageMin:18,ageMax:65,gender:'all',interests:[],budgetType:'daily',budget:1000,start:todayStr(),end:addDays(todayStr(),6),pay:CONFIG.payments[0].id,ref:''};}
+function adEstimate(){
+  const e=$('#adest');if(!AD||!e)return;
+  const c=adCalc(AD);
+  if(e)e.innerHTML=`<div class="row between"><span>Durée</span><b>${plural(c.days,'jour')}</b></div><div class="row between"><span>Budget total</span><b>${fmtF(c.total)}</b></div><div class="row between"><span>Affichages estimés</span><b>≈ ${c.views.toLocaleString('fr-FR')}</b></div><div class="row between"><span>Audience correspondante</span><b>${plural(c.reach,'personne')}</b></div>`;
+  const pv=$('#adprevcard');if(pv)pv.innerHTML=adPreview();
+}
+function adPreview(){
+  const me=ME();const pg=AD.src==='me'?null:P(AD.src);
+  if(AD.objective==='interactions'){const p=S.posts.find(x=>x.id===AD.postId);return p?postCard(p,false,true):'<p class="muted small">Choisissez la publication à promouvoir.</p>';}
+  return adCard({id:'preview',owner:me.id,pageId:pg?pg.id:null,advertiser:pg?pg.name:me.name,title:AD.title||'Titre de votre annonce',text:AD.text||'Le texte de votre annonce apparaîtra ici.',img:AD.img,ctaType:AD.ctaType,contact:AD.contact||'0',link:AD.link,cta:CTA_LABELS[AD.ctaType]});
+}
+function adSet(k,v,full){AD[k]=v;if(full)render();else adEstimate();}
 function adNewView(src){
   const me=ME();const srcs=adSources();
-  if(!srcs.length)return `<a class="back" href="javascript:history.back()">← Retour</a><div class="card center"><h3>📣 Lancer une publicité</h3><p class="muted" style="margin:8px 0">Pour lancer une campagne, passez en compte professionnel ou créez une page professionnelle.</p><button class="btn pri full" onclick="proModal()">💼 Passer en compte professionnel</button><button class="btn acc full" onclick="go('#/page-edit/new')">📄 Créer une page</button></div>`;
+  if(!srcs.length)return `<a class="back" href="javascript:history.back()">← Retour</a><div class="card center"><h3>📣 Créer une campagne</h3><p class="muted" style="margin:8px 0">Pour faire de la publicité, passez en compte professionnel ou créez une page professionnelle.</p><button class="btn pri full" onclick="proModal()">💼 Passer en compte professionnel</button><button class="btn acc full" onclick="go('#/page-edit/new')">📄 Créer une page</button></div>`;
   if(!srcs.some(s=>s.id===src))src=srcs[0].id;
-  const pg=src==='me'?null:P(src);const def=pg?pg.contact:me.proContact;const city=(pg&&pg.city)||me.city;
-  return `<a class="back" href="javascript:history.back()">← Retour</a><div class="card"><h3>📣 Nouvelle campagne publicitaire</h3>
-  <p class="muted small" style="margin-bottom:8px">Votre annonce apparaîtra, marquée « Sponsorisé », dans le fil d'actualité des utilisateurs de ${esc(CONFIG.appName)}.</p>
-  <label class="lbl">Annoncer au nom de</label>
-  <select id="adsrc" onchange="go('#/ad-new/'+this.value)">${srcs.map(s=>`<option value="${s.id}" ${s.id===src?'selected':''}>${esc(s.name)}</option>`).join('')}</select>
-  <input id="adtitle" placeholder="Titre (ex. Promo -20% ce week-end !)" maxlength="80">
-  <textarea id="adtext" class="big" placeholder="Texte de l'annonce : produits, prix, adresse…"></textarea>
-  <label class="btn full" style="margin:0 0 8px">📷 Image de la publicité<input type="file" accept="image/*" hidden onchange="pickImg(this,d=>{adDraftImg=d;setPrev('adprev',d)})"></label><img id="adprev" class="imgprev" alt="" ${adDraftImg?`src="${adDraftImg}" style="display:block"`:''}>
-  <label class="lbl">Bouton de l'annonce</label>
-  <select id="adcta">${Object.entries(CTA_LABELS).filter(([k])=>k!=='page'||pg).map(([k,l])=>`<option value="${k}">${l}</option>`).join('')}</select>
-  <input id="adcontact" placeholder="Numéro WhatsApp / téléphone" inputmode="tel" value="${esc(def||'')}">
-  <label class="lbl">Zone de diffusion</label>
-  <select id="adzone"><option value="">🇨🇮 Toute la Côte d'Ivoire</option>${city?`<option value="${esc(city)}">📍 Seulement à ${esc(city)}</option>`:''}</select>
-  <label class="lbl">Durée de la campagne</label>
-  <div class="offers">${CONFIG.adOffers.map((o,i)=>`<label class="offer"><input type="radio" name="ado" value="${i}" ${i===0?'checked':''}><b>${esc(o.label)}</b><span>${fmtF(o.price)}</span></label>`).join('')}</div>
-  <div class="pay"><b>Paiement :</b><ol><li>Envoyez le montant par <b>Wave</b> au <b>${esc(CONFIG.adminMomo)}</b>.</li><li>Indiquez la référence Wave ci-dessous (si vous avez déjà payé).</li><li>Votre publicité démarre dès que l'administrateur confirme la réception du dépôt.</li></ol></div>
-  <input id="adref" placeholder="Référence Wave (facultatif)">
-  <button class="btn acc full" onclick="submitAd()">🚀 Lancer ma campagne</button></div>`;
+  if(!AD||AD.src!==src){AD=newAdDraft(src);const pg=src==='me'?null:P(src);AD.contact=(pg?pg.contact:me.proContact)||'';const city=(pg&&pg.city)||me.city;if(city)AD.cities=[city];}
+  const pg=src==='me'?null:P(src);const ob=OBJECTIVES[AD.objective];
+  if(!ob[3].includes(AD.ctaType))AD.ctaType=ob[3].find(k=>k!=='page'||pg)||ob[3][0];
+  const myPosts=S.posts.filter(p=>(pg?p.pageId===pg.id:p.author===me.id&&!p.pageId)&&!p.groupId).slice(0,20);
+  const sec=(n,t)=>`<div class="row" style="margin:14px 0 6px"><span class="tag ok">${n}</span><b>${t}</b></div>`;
+  setTimeout(adEstimate,0);
+  return `<a class="back" href="javascript:history.back()">← Retour</a><div class="card"><h3>📣 Créer une campagne publicitaire</h3>
+  <label class="lbl">Annonceur</label>
+  <select onchange="go('#/ad-new/'+this.value)">${srcs.map(s=>`<option value="${s.id}" ${s.id===src?'selected':''}>${esc(s.name)}</option>`).join('')}</select>
+
+  ${sec(1,'Objectif de la campagne')}
+  <div class="ctool" style="margin-top:0">${Object.entries(OBJECTIVES).map(([k,o])=>`<button class="${AD.objective===k?'on':''}" onclick="adSet('objective','${k}',true)">${o[0]} ${o[1]}<br><span class="muted tiny" style="font-weight:400">${o[2]}</span></button>`).join('')}</div>
+
+  ${sec(2,'Audience')}
+  <label class="lbl">Lieux (laissez vide pour toute la Côte d'Ivoire)</label>
+  <div class="row wrap" style="gap:6px;margin-bottom:6px">${AD.cities.map((c,i)=>`<span class="chip on">📍 ${esc(c)} <b style="cursor:pointer" onclick="AD.cities.splice(${i},1);render()">✕</b></span>`).join('')||'<span class="chip">🇨🇮 Toute la Côte d\'Ivoire</span>'}</div>
+  <div class="row"><input id="adcityin" list="cities" placeholder="Ajouter une ville"><button class="btn sm" style="margin-bottom:8px" onclick="const v=normCity($('#adcityin').value);if(v&&!AD.cities.includes(v)){AD.cities.push(v);render();}">+ Ajouter</button></div>${cityList()}
+  <div class="row"><div class="grow"><label class="lbl">Âge minimum</label><input type="number" min="13" max="65" value="${AD.ageMin}" oninput="adSet('ageMin',+this.value)"></div><div class="grow"><label class="lbl">Âge maximum</label><input type="number" min="13" max="99" value="${AD.ageMax}" oninput="adSet('ageMax',+this.value)"></div></div>
+  <label class="lbl">Sexe</label><div class="chips">${[['all','Tous'],['f','Femmes'],['m','Hommes']].map(g=>`<button class="chip ${AD.gender===g[0]?'on':''}" onclick="adSet('gender','${g[0]}',true)">${g[1]}</button>`).join('')}</div>
+  <label class="lbl">Centres d'intérêt (facultatif)</label><div class="chips" style="flex-wrap:wrap">${INTERESTS.map(i=>`<button class="chip ${AD.interests.includes(i)?'on':''}" onclick="AD.interests=AD.interests.includes('${i}')?AD.interests.filter(x=>x!=='${i}'):[...AD.interests,'${i}'];render()">${esc(i)}</button>`).join('')}</div>
+
+  ${sec(3,'Budget et calendrier')}
+  <div class="chips"><button class="chip ${AD.budgetType==='daily'?'on':''}" onclick="adSet('budgetType','daily',true)">Budget quotidien</button><button class="chip ${AD.budgetType==='total'?'on':''}" onclick="adSet('budgetType','total',true)">Budget total</button></div>
+  <label class="lbl">${AD.budgetType==='daily'?'Montant par jour':'Montant total'} (FCFA)</label>
+  <input type="number" inputmode="numeric" min="${CONFIG.ads.minDaily}" step="500" value="${AD.budget}" oninput="adSet('budget',+this.value)">
+  <div class="row"><div class="grow"><label class="lbl">Début</label><input type="date" min="${todayStr()}" value="${AD.start}" oninput="adSet('start',this.value)"></div><div class="grow"><label class="lbl">Fin</label><input type="date" min="${todayStr()}" value="${AD.end}" oninput="adSet('end',this.value)"></div></div>
+  <div class="pay" id="adest"></div>
+  <p class="muted tiny">Tarif : ${fmtF(CONFIG.ads.cpm)} pour 1 000 affichages. La diffusion s'arrête à la date de fin ou quand le budget est atteint.</p>
+
+  ${sec(4,'Contenu de la publicité')}
+  ${AD.objective==='interactions'?`<label class="lbl">Publication à promouvoir</label><select onchange="adSet('postId',this.value)"><option value="">Choisir…</option>${myPosts.map(p=>`<option value="${p.id}" ${AD.postId===p.id?'selected':''}>${esc((p.text||'Photo').slice(0,60))} (${ago(p.ts)})</option>`).join('')}</select>${myPosts.length?'':'<p class="muted small">Publiez d\'abord quelque chose.</p>'}`
+  :`<input placeholder="Titre (ex. Promo -20% ce week-end !)" maxlength="60" value="${esc(AD.title)}" oninput="adSet('title',this.value)">
+  <textarea class="big" placeholder="Texte principal : produits, prix, adresse…" oninput="adSet('text',this.value)">${esc(AD.text)}</textarea>
+  <label class="btn full" style="margin:0 0 8px">📷 ${AD.img?'Changer l\'image':'Ajouter une image'}<input type="file" accept="image/*" hidden onchange="pickImg(this,d=>{AD.img=d;render()})"></label>
+  <label class="lbl">Bouton d'action</label><select onchange="adSet('ctaType',this.value,true)">${ob[3].filter(k=>k!=='page'||pg).map(k=>`<option value="${k}" ${AD.ctaType===k?'selected':''}>${CTA_LABELS[k]}</option>`).join('')}</select>
+  ${['whatsapp','order','call'].includes(AD.ctaType)?`<input placeholder="Numéro WhatsApp / téléphone" inputmode="tel" value="${esc(AD.contact)}" oninput="adSet('contact',this.value)">`:''}
+  ${AD.ctaType==='link'?`<input placeholder="Adresse du site (https://…)" value="${esc(AD.link)}" oninput="adSet('link',this.value)">`:''}`}
+  <label class="lbl">Aperçu</label><div id="adprevcard" style="background:var(--bg);padding:8px;border-radius:10px">${adPreview()}</div>
+
+  ${sec(5,'Moyen de paiement')}
+  ${CONFIG.payments.map(m=>`<label class="opt"><input type="radio" name="adpay" value="${m.id}" style="width:auto;margin:0" ${AD.pay===m.id?'checked':''} onchange="AD.pay=this.value">${m.icon} <b>${esc(m.name)}</b> <span class="muted small">au ${m.numbers.map(esc).join(' ou ')}</span></label>`).join('')}
+  <input placeholder="Référence de la transaction (si vous avez déjà payé)" value="${esc(AD.ref)}" oninput="AD.ref=this.value">
+  <div class="pay small">Votre campagne sera d'abord <b>examinée par l'administrateur</b>. Elle sera diffusée dès que votre paiement est confirmé. Une facture est disponible dans « Facturation ».</div>
+  <button class="btn acc full" onclick="submitAd()">🚀 Envoyer la campagne pour validation</button></div>`;
 }
 function submitAd(){
-  const me=ME();const src=$('#adsrc').value;const pg=src==='me'?null:P(src);
-  const title=$('#adtitle').value.trim(),text=$('#adtext').value.trim();
-  if(title.length<3)return toast("Donnez un titre à l'annonce");
-  const ctaType=$('#adcta').value,contact=$('#adcontact').value.trim();
-  if(ctaType!=='page'&&!contact)return toast('Indiquez le numéro de contact');
-  const o=CONFIG.adOffers[+document.querySelector('input[name=ado]:checked').value];
-  const code='PUB-'+Math.random().toString(36).slice(2,7).toUpperCase();
-  const a={id:uid(),owner:me.id,pageId:pg?pg.id:null,advertiser:pg?pg.name:me.name,title,text,img:adDraftImg,ctaType,contact,cta:CTA_LABELS[ctaType],targetCity:$('#adzone').value||null,
-    status:'pending',active:false,days:o.days,amount:o.price,offer:o.label,ref:$('#adref').value.trim(),code,views:0,clicks:0,ts:Date.now()};
-  S.ads.unshift(a);adDraftImg=null;
-  notify(adminId(),`📣 Nouvelle campagne ${code} de ${a.advertiser} (${o.label}, ${fmtF(o.price)}) à valider`,'#/admin/ads');
+  const me=ME();const pg=AD.src==='me'?null:P(AD.src);const c=adCalc(AD);const ob=OBJECTIVES[AD.objective];
+  if(AD.objective==='interactions'){if(!AD.postId)return toast('Choisissez la publication à promouvoir');}
+  else{if(AD.title.trim().length<3)return toast("Donnez un titre à l'annonce");
+    if(['whatsapp','order','call'].includes(AD.ctaType)&&waNum(AD.contact).length<10)return toast('Indiquez un numéro de contact valide');
+    if(AD.ctaType==='link'&&!/^https?:\/\/\S+\.\S+/i.test(AD.link.trim()))return toast('Indiquez une adresse de site valide (https://…)');}
+  if(AD.ageMin<13||AD.ageMax<AD.ageMin)return toast("Vérifiez la tranche d'âge");
+  if(AD.start<todayStr())return toast('La date de début ne peut pas être passée');
+  if(AD.end<AD.start)return toast('La date de fin doit être après le début');
+  if(c.total<CONFIG.ads.minDaily||(AD.budgetType==='daily'&&AD.budget<CONFIG.ads.minDaily)||c.total/c.days<CONFIG.ads.minDaily)return toast(`Budget minimum : ${fmtF(CONFIG.ads.minDaily)} par jour`);
+  if(!c.reach)return toast('Aucune personne ne correspond à cette audience : élargissez-la');
+  const code='PUB-'+Math.random().toString(36).slice(2,7).toUpperCase();const pm=CONFIG.payments.find(m=>m.id===AD.pay)||CONFIG.payments[0];
+  const p=AD.objective==='interactions'?S.posts.find(x=>x.id===AD.postId):null;
+  const a={id:uid(),owner:me.id,pageId:pg?pg.id:null,advertiser:pg?pg.name:me.name,objective:AD.objective,
+    title:p?(p.text||'Publication').slice(0,60):AD.title.trim(),text:p?'':AD.text.trim(),img:p?null:AD.img,postId:p?p.id:null,
+    ctaType:AD.ctaType,contact:AD.contact.trim(),link:AD.link.trim(),cta:CTA_LABELS[AD.ctaType]||'',
+    audience:{cities:AD.cities,ageMin:AD.ageMin,ageMax:AD.ageMax,gender:AD.gender,interests:AD.interests},
+    budgetType:AD.budgetType,budget:AD.budget,amount:c.total,days:c.days,maxViews:c.views,startDate:AD.start,endDate:AD.end,
+    payMethod:pm.id,ref:AD.ref.trim(),code,invoiceNo:'FAC-'+code.slice(4),status:'review',active:false,paid:false,views:0,clicks:0,viewers:[],ts:Date.now()};
+  S.ads.unshift(a);AD=null;
+  notify(adminId(),`📣 Campagne ${code} à examiner : ${a.advertiser} · ${ob[1]} · ${fmtF(a.amount)}`,'#/admin/ads');
   save();
-  afterNav=()=>modal(`<h3>✅ Campagne envoyée</h3><p>Votre code : <b>${esc(code)}</b></p>
-    <div class="pay">Dernière étape : envoyez <b>${fmtF(o.price)}</b> par <b>Wave</b> au <b>${esc(CONFIG.adminMomo)}</b>, puis prévenez l'administrateur. Votre publicité sera activée dès réception du dépôt.</div>
+  navThen('#/my-ads',()=>modal(`<h3>✅ Campagne envoyée</h3><p>Code : <b>${esc(code)}</b> · Facture <b>${esc(a.invoiceNo)}</b></p>
+    <div class="pay">Elle est maintenant <b>en cours d'examen</b>. Envoyez <b>${fmtF(a.amount)}</b> par <b>${esc(pm.name)}</b> au <b>${pm.numbers.map(esc).join(' ou ')}</b>, puis prévenez l'administrateur. Elle sera diffusée dès validation.</div>
     <a class="btn acc full" href="${esc(waAdmin(a))}" target="_blank" rel="noopener" onclick="closeModal()">📲 Prévenir l'administrateur sur WhatsApp</a>
-    <button class="btn ghost full" onclick="closeModal()">Plus tard</button>`);
-  const f=afterNav;afterNav=null;navThen('#/my-ads',f);
+    <button class="btn full" onclick="closeModal();go('#/invoice/${a.id}')">🧾 Voir la facture</button>
+    <button class="btn ghost full" onclick="closeModal()">Plus tard</button>`));
+}
+function waAdmin(a){
+  const ob=OBJECTIVES[a.objective]||['','Campagne'];const t=a.audience||{};
+  const msg=`Bonjour, je viens de lancer une campagne publicitaire sur ${CONFIG.appName}.\nCode : ${a.code}\nFacture : ${a.invoiceNo||'-'}\nAnnonceur : ${a.advertiser}\nObjectif : ${ob[1]}\nAudience : ${(t.cities&&t.cities.length?t.cities.join(', '):"Toute la Côte d'Ivoire")}, ${t.ageMin||18}-${t.ageMax||65} ans\nPériode : du ${a.startDate||''} au ${a.endDate||''}\nMontant : ${fmtF(a.amount)}${a.ref?'\nRéférence de paiement : '+a.ref:'\nJe vous envoie le paiement.'}`;
+  return `https://wa.me/${CONFIG.adminWhatsApp}?text=${encodeURIComponent(msg)}`;
 }
 function adStatus(a){
-  if(a.status==='pending')return '<span class="tag wait">En attente du paiement</span>';
+  if(a.status==='review'||a.status==='pending')return '<span class="tag wait">En cours d\'examen</span>';
+  if(a.status==='approved')return '<span class="tag blue">Approuvée · en attente du paiement</span>';
   if(a.status==='refused')return '<span class="tag no">Refusée</span>';
+  if(a.status==='ok'&&budgetDone(a))return '<span class="tag no">Budget atteint</span>';
   if(a.endsAt&&a.endsAt<=Date.now())return '<span class="tag no">Terminée</span>';
-  return a.active?'<span class="tag ok">En cours</span>':'<span class="tag wait">En pause</span>';
+  if(a.paused||!a.active)return '<span class="tag wait">En pause</span>';
+  if(a.startsAt&&a.startsAt>Date.now())return '<span class="tag blue">Programmée</span>';
+  return '<span class="tag ok">● Active</span>';
 }
+const adSpent=a=>Math.min(a.amount||0,Math.round((a.views||0)*CONFIG.ads.cpm/1000));
 function myAdsView(){
   const me=ME().id;const ads=S.ads.filter(a=>a.owner===me);
-  return `<div class="row between" style="margin:4px 0 8px"><h2>📊 Mes campagnes</h2><button class="btn acc sm" onclick="go('#/ad-new/me')">+ Nouvelle</button></div>
-  ${ads.map(a=>`<div class="card"><div class="row between" style="align-items:flex-start"><b class="grow">${esc(a.title)}</b>${adStatus(a)}</div>
-  <div class="muted small">${esc(a.code||'')} · ${esc(a.advertiser)} · ${esc(a.offer||'')} · ${fmtF(a.amount)} · ${a.targetCity?'📍 '+esc(a.targetCity):'🇨🇮 National'}</div>
-  <div class="small" style="margin-top:4px">👁️ ${a.views||0} vues · 👆 ${a.clicks||0} clics${a.endsAt&&a.status==='ok'?' · jusqu\'au '+new Date(a.endsAt).toLocaleDateString('fr-FR'):''}</div>
-  ${a.status==='pending'?`<div class="row wrap" style="margin-top:8px"><a class="btn acc sm" href="${esc(waAdmin(a))}" target="_blank" rel="noopener">📲 Prévenir l'administrateur</a><button class="btn sm" onclick="cancelAd('${a.id}')">Annuler</button></div>`:''}</div>`).join('')||empty("Vous n'avez lancé aucune campagne pour le moment.")}`;
+  const tv=ads.reduce((s,a)=>s+(a.views||0),0),tc=ads.reduce((s,a)=>s+(a.clicks||0),0),ts=ads.reduce((s,a)=>s+(a.status==='ok'?adSpent(a):0),0);
+  return `<div class="row between" style="margin:4px 0 8px"><h2>📊 Gestionnaire de publicités</h2></div>
+  <div class="row" style="margin-bottom:10px"><button class="btn acc grow" onclick="AD=null;go('#/ad-new/me')">+ Créer une campagne</button><button class="btn grow" onclick="go('#/billing')">🧾 Facturation</button></div>
+  <div class="stats"><div class="stat"><b>${tv.toLocaleString('fr-FR')}</b><span class="muted small">Affichages</span></div><div class="stat"><b>${tc}</b><span class="muted small">Clics</span></div><div class="stat"><b>${tv?(tc*100/tv).toFixed(1):0} %</b><span class="muted small">Taux de clic</span></div><div class="stat"><b>${fmtF(ts)}</b><span class="muted small">Montant dépensé</span></div></div>
+  ${ads.map(a=>{const ob=OBJECTIVES[a.objective]||['📣','Campagne'];const t=a.audience||{};return `<div class="card"><div class="row between" style="align-items:flex-start"><b class="grow">${esc(a.title)}</b>${adStatus(a)}</div>
+  <div class="muted small">${ob[0]} ${ob[1]} · ${esc(a.advertiser)} · ${esc(a.code||'')}</div>
+  <div class="muted small">👥 ${t.cities&&t.cities.length?esc(t.cities.join(', ')):"Toute la Côte d'Ivoire"}${t.ageMin?` · ${t.ageMin}-${t.ageMax} ans`:''}${t.gender&&t.gender!=='all'?(t.gender==='f'?' · Femmes':' · Hommes'):''}${t.interests&&t.interests.length?' · '+esc(t.interests.join(', ')):''}</div>
+  <div class="muted small">📅 ${a.startDate?`${new Date(a.startDate+'T12:00').toLocaleDateString('fr-FR')} → ${new Date(a.endDate+'T12:00').toLocaleDateString('fr-FR')}`:''} · 💰 ${a.budgetType==='daily'?fmtF(a.budget)+'/jour · ':''}Total ${fmtF(a.amount)}</div>
+  ${a.refuseReason?`<div class="small" style="color:#d93025;margin-top:4px">Motif du refus : ${esc(a.refuseReason)}</div>`:''}
+  <div class="row between small" style="margin-top:8px;text-align:center"><div>👁️ <b>${a.views||0}</b><br><span class="muted tiny">affichages</span></div><div>👤 <b>${(a.viewers||[]).length}</b><br><span class="muted tiny">portée</span></div><div>👆 <b>${a.clicks||0}</b><br><span class="muted tiny">clics</span></div><div>💸 <b>${fmtF(a.status==='ok'?adSpent(a):0)}</b><br><span class="muted tiny">dépensé</span></div></div>
+  <div class="row wrap" style="margin-top:8px">${a.status==='ok'&&!(a.endsAt&&a.endsAt<=Date.now())&&!budgetDone(a)?`<button class="btn sm" onclick="pauseAd('${a.id}')">${a.paused?'▶️ Reprendre':'⏸️ Mettre en pause'}</button>`:''}
+  ${['review','pending','approved'].includes(a.status)?`<a class="btn acc sm" href="${esc(waAdmin(a))}" target="_blank" rel="noopener">📲 Prévenir l'admin</a><button class="btn sm" onclick="cancelAd('${a.id}')">Annuler</button>`:''}
+  <button class="btn sm" onclick="go('#/invoice/${a.id}')">🧾 Facture</button><button class="btn sm" onclick="duplicateAd('${a.id}')">📄 Dupliquer</button></div></div>`;}).join('')||empty("Vous n'avez lancé aucune campagne pour le moment.")}`;
 }
+function pauseAd(id){const a=S.ads.find(x=>x.id===id);a.paused=!a.paused;save();render();toast(a.paused?'Campagne en pause':'Campagne relancée');}
 function cancelAd(id){if(!confirm('Annuler cette campagne ?'))return;S.ads=S.ads.filter(a=>a.id!==id);save();render();}
-function validateAd(id,ok){
+function duplicateAd(id){
+  const a=S.ads.find(x=>x.id===id);if(!a)return;const src=a.pageId||'me';
+  AD=newAdDraft(src);const t=a.audience||{};
+  Object.assign(AD,{objective:a.objective||'messages',title:a.title,text:a.text||'',img:a.img||null,ctaType:a.ctaType||'whatsapp',contact:a.contact||'',link:a.link||'',postId:a.postId||'',cities:t.cities||[],ageMin:t.ageMin||18,ageMax:t.ageMax||65,gender:t.gender||'all',interests:t.interests||[],budgetType:a.budgetType||'daily',budget:a.budget||1000});
+  go('#/ad-new/'+src);
+}
+function billingView(){
+  const me=ME().id;const ads=S.ads.filter(a=>a.owner===me&&a.amount);
+  const due=ads.filter(a=>!a.paid&&a.status!=='refused').reduce((s,a)=>s+a.amount,0),paid=ads.filter(a=>a.paid).reduce((s,a)=>s+a.amount,0);
+  return `<a class="back" href="#/my-ads">← Gestionnaire de publicités</a><h2 style="margin:4px 0 8px">🧾 Facturation</h2>
+  <div class="stats"><div class="stat"><b>${fmtF(due)}</b><span class="muted small">À payer</span></div><div class="stat"><b>${fmtF(paid)}</b><span class="muted small">Déjà payé</span></div></div>
+  <div class="card"><h3>Moyens de paiement acceptés</h3>${CONFIG.payments.map(m=>`<div class="list-item"><span style="font-size:24px">${m.icon}</span><div class="grow"><b>${esc(m.name)}</b><div class="muted small">${m.numbers.map(esc).join(' · ')}</div></div></div>`).join('')}<p class="muted tiny" style="margin-top:6px">Après paiement, indiquez la référence de la transaction à l'administrateur : votre campagne est activée dès la confirmation.</p></div>
+  <div class="card"><h3>Factures</h3>${ads.map(a=>`<a class="list-item" href="#/invoice/${a.id}"><span style="font-size:22px">🧾</span><div class="grow"><b>${esc(a.invoiceNo||a.code)}</b><div class="muted small">${esc(a.title)} · ${new Date(a.ts).toLocaleDateString('fr-FR')}</div></div><div style="text-align:right"><b>${fmtF(a.amount)}</b><br>${a.paid?'<span class="tag ok">Payée</span>':a.status==='refused'?'<span class="tag no">Annulée</span>':'<span class="tag wait">À payer</span>'}</div></a>`).join('')||empty('Aucune facture.')}</div>`;
+}
+function invoiceView(id){
+  const a=S.ads.find(x=>x.id===id);const me=ME();if(!a||(a.owner!==me.id&&!me.isAdmin))return empty('Facture introuvable');
+  const u=U(a.owner)||{name:'?'};const ob=OBJECTIVES[a.objective]||['📣','Campagne publicitaire'];const pm=CONFIG.payments.find(m=>m.id===a.payMethod)||{name:a.payMethod||'—'};
+  return `<a class="back" href="javascript:history.back()">← Retour</a><div class="card" id="invoice">
+  <div class="row between" style="align-items:flex-start"><div><div class="logo">${esc(CONFIG.appName.toLowerCase())}</div><div class="muted tiny">${esc(CONFIG.slogan)}</div></div><div style="text-align:right"><b>FACTURE</b><div class="small">${esc(a.invoiceNo||a.code)}</div><div class="muted tiny">${new Date(a.ts).toLocaleDateString('fr-FR')}</div></div></div>
+  <div class="sep"></div>
+  <div class="small"><b>Client :</b> ${esc(u.name)}${a.pageId&&P(a.pageId)?' — Page '+esc(P(a.pageId).name):''}<br><b>Campagne :</b> ${esc(a.title)} (${esc(a.code)})<br><b>Objectif :</b> ${ob[0]} ${ob[1]}<br><b>Période :</b> ${a.startDate?new Date(a.startDate+'T12:00').toLocaleDateString('fr-FR')+' au '+new Date(a.endDate+'T12:00').toLocaleDateString('fr-FR'):'—'} (${plural(a.days||0,'jour')})</div>
+  <div class="sep"></div>
+  <div class="row between small"><span>${a.budgetType==='daily'?`Budget quotidien ${fmtF(a.budget)} × ${a.days} j`:'Budget total'}</span><b>${fmtF(a.amount)}</b></div>
+  <div class="row between small muted"><span>Affichages prévus</span><span>≈ ${(a.maxViews||0).toLocaleString('fr-FR')}</span></div>
+  <div class="sep"></div>
+  <div class="row between"><b>TOTAL</b><b style="font-size:20px">${fmtF(a.amount)}</b></div>
+  <div class="small" style="margin-top:8px"><b>Paiement :</b> ${esc(pm.name)}${a.ref?' · réf. '+esc(a.ref):''} — ${a.paid?`<span class="tag ok">Payée le ${new Date(a.paidAt||a.ts).toLocaleDateString('fr-FR')}</span>`:a.status==='refused'?'<span class="tag no">Annulée</span>':'<span class="tag wait">En attente de paiement</span>'}</div>
+  </div><button class="btn full" onclick="window.print()">🖨️ Imprimer / enregistrer en PDF</button>`;
+}
+function validateAd(id,action){
   const a=S.ads.find(x=>x.id===id);if(!a)return;
-  if(ok){a.status='ok';a.active=true;a.startsAt=Date.now();a.endsAt=Date.now()+(a.days||7)*864e5;notify(a.owner,`🎉 Votre publicité ${a.code} est en ligne pour ${a.offer}`,'#/my-ads');}
-  else{a.status='refused';a.active=false;notify(a.owner,`Votre campagne ${a.code} a été refusée. Contactez l'administrateur.`,'#/my-ads');}
-  a.decidedAt=Date.now();save();render();toast(ok?'Publicité activée 🚀':'Campagne refusée');
+  if(action==='approve'){a.status='approved';notify(a.owner,`✅ Votre campagne ${a.code} est approuvée. Elle sera diffusée dès réception du paiement de ${fmtF(a.amount)}.`,'#/my-ads');}
+  else if(action==='paid'||action===true){
+    const now=Date.now();const start=a.startDate?Math.max(now,new Date(a.startDate+'T00:00').getTime()):now;
+    a.status='ok';a.active=true;a.paid=true;a.paidAt=now;a.startsAt=start;a.endsAt=a.endDate?new Date(a.endDate+'T23:59').getTime():start+(a.days||7)*dayMs;
+    notify(a.owner,`🎉 Paiement reçu : votre publicité ${a.code} est ${start>now?'programmée':'en ligne'} !`,'#/my-ads');}
+  else{const r=prompt('Motif du refus (il sera envoyé à l\'annonceur) :','Contenu non conforme')||'Non précisé';a.status='refused';a.active=false;a.refuseReason=r;notify(a.owner,`Votre campagne ${a.code} a été refusée : ${r}`,'#/my-ads');}
+  a.decidedAt=Date.now();save();render();toast(a.status==='ok'?'Publicité activée 🚀':a.status==='approved'?'Campagne approuvée':'Campagne refusée');
 }
 
 /* ================= ADMINISTRATION ================= */
 let adImg=null;
 function adminView(tab){
   const T=[['stats','📊 Statistiques'],['users','👤 Utilisateurs'],['ads','📣 Publicités'],['boosts','🚀 Boosts'],['reports','🚩 Signalements']];
-  const pb=S.boosts.filter(b=>b.status==='pending').length;const pa=S.ads.filter(a=>a.status==='pending').length;
+  const pb=S.boosts.filter(b=>b.status==='pending').length;const pa=S.ads.filter(a=>['review','pending','approved'].includes(a.status)).length;
   let body='';
   if(tab==='stats'){
     const rev=S.boosts.filter(b=>b.status==='ok').reduce((s,b)=>s+b.amount,0);
-    const revAds=S.ads.filter(a=>a.status==='ok'&&a.amount).reduce((s,a)=>s+a.amount,0);
+    const revAds=S.ads.filter(a=>a.paid||(a.status==='ok'&&a.amount)).reduce((s,a)=>s+(a.amount||0),0);
     const wk=Date.now()-7*864e5;
     const cities={};S.users.forEach(u=>{if(u.city)cities[u.city]=(cities[u.city]||0)+1;});
-    const st=[['Utilisateurs',S.users.length],['Nouveaux (7 j)',S.users.filter(u=>u.joined>wk).length],['Villes représentées',Object.keys(cities).length],['Publications',S.posts.length],['Stories actives',liveStories().length],['Événements',S.events.length],['Pages pro',S.pages.length],['Comptes pro',S.users.filter(u=>u.pro).length],['Annonces Marketplace',S.listings.length],['Campagnes en attente',pa],['Revenus publicités',fmtF(revAds)],['Revenus boosts',fmtF(rev)],['Pubs en cours',S.ads.filter(isAdLive).length],['Vues des pubs',S.ads.reduce((s,a)=>s+(a.views||0),0)]];
+    const st=[['Utilisateurs',S.users.length],['Nouveaux (7 j)',S.users.filter(u=>u.joined>wk).length],['Villes représentées',Object.keys(cities).length],['Publications',S.posts.length],['Stories actives',liveStories().length],['Événements',S.events.length],['Pages pro',S.pages.length],['Comptes pro',S.users.filter(u=>u.pro).length],['Annonces Marketplace',S.listings.length],['Campagnes à traiter',pa],['Revenus publicités',fmtF(revAds)],['Revenus boosts',fmtF(rev)],['Pubs en cours',S.ads.filter(isAdLive).length],['Vues des pubs',S.ads.reduce((s,a)=>s+(a.views||0),0)]];
     body=`<div class="stats">${st.map(s=>`<div class="stat"><b>${s[1]}</b><span class="muted small">${s[0]}</span></div>`).join('')}</div>
     <div class="card"><h3>Utilisateurs par ville</h3>${Object.entries(cities).sort((a,b)=>b[1]-a[1]).map(c=>`<div class="row between small" style="padding:4px 0"><span>📍 ${esc(c[0])}</span><b>${c[1]}</b></div>`).join('')||'<span class="muted">—</span>'}</div>
     ${ONLINE?'':`<div class="card"><h3>Données</h3><p class="muted small">Mode démo : les données sont enregistrées sur cet appareil.</p><button class="btn red full" onclick="resetDemo()">Réinitialiser toutes les données</button></div>`}`;
@@ -1491,15 +1633,22 @@ function adminView(tab){
     ${b.status==='pending'?`<div class="row" style="margin-top:6px"><button class="btn pri sm" onclick="validateBoost('${b.id}',true)">✔ Paiement reçu</button><button class="btn red sm" onclick="validateBoost('${b.id}',false)">Refuser</button></div>`:''}</div></div>`;}).join('')||empty('Aucune demande de boost.')}</div>`;
   }
   if(tab==='ads'){
-    const pend=S.ads.filter(a=>a.status==='pending');
-    body=`<div class="card"><h3>⏳ Campagnes à valider (${pend.length})</h3>${pend.map(a=>{const u=U(a.owner)||{name:'?'};return `<div class="list-item" style="align-items:flex-start"><div class="grow"><b>${esc(a.code)}</b> · ${esc(a.title)}<div class="small">${esc(a.advertiser)} (par <a href="#/profile/${a.owner}">${esc(u.name)}</a>) · ${esc(a.offer)} · <b>${fmtF(a.amount)}</b> · ${a.targetCity?'📍 '+esc(a.targetCity):'🇨🇮 National'}</div><div class="muted small">${a.ref?'Réf. Wave : '+esc(a.ref):'Pas encore de référence'} · ${ago(a.ts)}</div>${a.img?`<img src="${esc(a.img)}" style="width:100%;max-height:160px;object-fit:cover;border-radius:8px;margin-top:6px">`:''}<div class="row wrap" style="margin-top:6px"><button class="btn pri sm" onclick="validateAd('${a.id}',true)">✔ Dépôt reçu, activer</button><button class="btn red sm" onclick="validateAd('${a.id}',false)">Refuser</button><a class="btn sm" href="#/chat/${a.owner}">💬</a></div></div></div>`;}).join('')||'<p class="muted small">Aucune campagne en attente.</p>'}</div>
-    <div class="card"><h3>Nouvelle campagne sponsorisée (admin)</h3>
+    const card=a=>{const u=U(a.owner)||{name:'?'};const ob=OBJECTIVES[a.objective]||['📣','Campagne'];const t=a.audience||{};const pm=CONFIG.payments.find(m=>m.id===a.payMethod);
+      return `<div class="list-item" style="align-items:flex-start"><div class="grow"><b>${esc(a.code)}</b> ${adStatus(a)}<div class="small"><b>${esc(a.title)}</b> — ${esc(a.advertiser)} (par <a href="#/profile/${a.owner}">${esc(u.name)}</a>)</div>
+      <div class="muted small">${ob[0]} ${ob[1]} · 👥 ${t.cities&&t.cities.length?esc(t.cities.join(', ')):'Toute la CI'}, ${t.ageMin||'?'}-${t.ageMax||'?'} ans${t.gender&&t.gender!=='all'?(t.gender==='f'?', femmes':', hommes'):''} · 📅 ${esc(a.startDate||'')} → ${esc(a.endDate||'')}</div>
+      <div class="small">💰 <b>${fmtF(a.amount)}</b> · ${pm?pm.icon+' '+esc(pm.name):''} ${a.ref?'· réf. <b>'+esc(a.ref)+'</b>':'· pas encore de référence'} · ${ago(a.ts)}</div>
+      ${a.objective==='interactions'?`<a class="small" href="#/post/${a.postId}">Voir la publication promue →</a>`:a.img?`<img src="${esc(a.img)}" style="width:100%;max-height:160px;object-fit:cover;border-radius:8px;margin-top:6px">`:''}${a.text?`<div class="small muted" style="margin-top:4px">${esc(a.text.slice(0,200))}</div>`:''}
+      <div class="row wrap" style="margin-top:6px">${['review','pending'].includes(a.status)?`<button class="btn soft sm" onclick="validateAd('${a.id}','approve')">✔ Approuver le contenu</button>`:''}<button class="btn pri sm" onclick="validateAd('${a.id}','paid')">💰 Paiement reçu → Activer</button><button class="btn red sm" onclick="validateAd('${a.id}','refuse')">✕ Refuser</button><a class="btn sm" href="#/chat/${a.owner}">💬</a><a class="btn sm" href="#/invoice/${a.id}">🧾</a></div></div></div>`;};
+    const rev=S.ads.filter(a=>['review','pending'].includes(a.status)),apr=S.ads.filter(a=>a.status==='approved');
+    body=`<div class="card"><h3>🔍 À examiner (${rev.length})</h3>${rev.map(card).join('')||'<p class="muted small">Aucune campagne à examiner.</p>'}</div>
+    <div class="card"><h3>💳 Approuvées · en attente du paiement (${apr.length})</h3>${apr.map(card).join('')||'<p class="muted small">Aucune.</p>'}</div>
+    <div class="card"><h3>Campagnes diffusées</h3>${S.ads.filter(a=>a.status==='ok'||a.status==='refused').map(a=>`<div class="list-item"><div class="grow"><b>${esc(a.title)}</b> ${adStatus(a)}<div class="muted small">${esc(a.advertiser)} · ${a.views||0} affichages · ${(a.viewers||[]).length} pers. · ${a.clicks||0} clics${a.amount?' · '+fmtF(a.amount):''}${a.endsAt?' · fin '+new Date(a.endsAt).toLocaleDateString('fr-FR'):''}</div></div><button class="btn sm" onclick="toggleAd('${a.id}')">${a.active?'Pause':'Activer'}</button><button class="btn red sm" onclick="deleteAd('${a.id}')">🗑️</button></div>`).join('')||empty('Aucune campagne')}</div>
+    <div class="card"><h3>Publier une annonce (admin)</h3>
     <input id="aadv" placeholder="Nom de l'annonceur"><input id="atitle" placeholder="Titre de l'annonce"><textarea id="atext" class="big" placeholder="Texte de l'annonce"></textarea>
     <input id="acontact" placeholder="WhatsApp (0544076062) ou lien https://"><input id="acta" placeholder="Texte du bouton (ex. Commander)">
     <input id="azone" list="cities" placeholder="Ville ciblée (vide = toute la Côte d'Ivoire)">${cityList()}
     <label class="btn full" style="margin:0 0 8px">📷 Image de la pub<input type="file" accept="image/*" hidden onchange="pickImg(this,d=>{adImg=d;setPrev('aprev',d)})"></label><img id="aprev" class="imgprev" alt="">
-    <button class="btn acc full" onclick="createAd()">Lancer la campagne</button></div>
-    <div class="card"><h3>Toutes les campagnes</h3>${S.ads.filter(a=>a.status!=='pending').map(a=>`<div class="list-item"><div class="grow"><b>${esc(a.title)}</b> ${adStatus(a)}<div class="muted small">${esc(a.advertiser)} · ${a.views||0} vues · ${a.clicks||0} clics${a.endsAt?' · fin '+new Date(a.endsAt).toLocaleDateString('fr-FR'):''}</div></div><button class="btn sm" onclick="toggleAd('${a.id}')">${a.active?'Pause':'Activer'}</button><button class="btn red sm" onclick="deleteAd('${a.id}')">🗑️</button></div>`).join('')||empty('Aucune campagne')}</div>`;
+    <button class="btn acc full" onclick="createAd()">Lancer l'annonce</button></div>`;
   }
   if(tab==='reports'){
     body=`<div class="card">${S.reports.map(r=>{const p=S.posts.find(x=>x.id===r.postId);const u=U(r.user)||{name:'?'};const a=p?U(p.author):null;return `<div class="list-item" style="align-items:flex-start"><div class="grow"><span class="tag no">${esc(r.reason)}</span> <span class="muted small">par ${esc(u.name)} · ${ago(r.ts)}</span>${p?`<div class="small" style="margin-top:4px"><b>${esc(a?a.name:'?')}</b> : ${esc((p.text||'Photo').slice(0,120))}</div>`:''}<div class="row" style="margin-top:6px">${p?`<button class="btn red sm" onclick="deletePost('${p.id}')">Supprimer la publication</button><a class="btn sm" href="#/post/${p.id}">Voir</a>`:''}<button class="btn sm" onclick="dismissReport('${r.id}')">Ignorer</button></div></div></div>`;}).join('')||empty('Aucun signalement 👍')}</div>`;
@@ -1578,6 +1727,8 @@ function render(){
     case 'page-edit':html=pageEditView(param||'new');break;
     case 'ad-new':html=adNewView(param||'me');break;
     case 'my-ads':html=myAdsView();break;
+    case 'billing':html=billingView();break;
+    case 'invoice':html=invoiceView(param);break;
     case 'admin':html=me.isAdmin?adminView(param||'stats'):feedView();break;
     default:html=feedView();
   }
