@@ -238,7 +238,9 @@ const CONFIG = {
   ads: { minDaily: 500, cpm: 1000 },
   // Moyens de paiement acceptés (ajoutez Orange Money, MTN MoMo, Moov Money avec leurs numéros)
   payments: [
-    { id: "wave", name: "Wave", icon: "🌊", numbers: ["05 44 07 60 62", "07 08 50 77 12"] }
+    { id: "wave", name: "Wave", icon: "🌊", numbers: ["05 44 07 60 62", "07 08 50 77 12"] },
+    { id: "om", name: "Orange Money", icon: "🟠", numbers: ["07 08 50 77 12"] },
+    { id: "mtn", name: "MTN MoMo", icon: "🟡", numbers: ["05 44 07 60 62"] }
   ],
   storageKey: "soucinana_v5"
 };
@@ -1014,7 +1016,7 @@ function adClick(id){const a=S.ads.find(x=>x.id===id);if(a){a.clicks=(a.clicks||
 function boostModal(pid){
   modal(`<h3>🚀 Booster ma publication</h3><p class="muted small">Votre publication s'affiche en tête du fil d'actualité de tous les utilisateurs pendant la durée choisie.</p>
   <div class="offers">${CONFIG.boostOffers.map((o,i)=>`<label class="offer"><input type="radio" name="bo" value="${i}" ${i===0?'checked':''}><b>${plural(o.days,'jour')}</b><span>${fmtF(o.price)}</span></label>`).join('')}</div>
-  <div class="pay"><b>Comment payer :</b><ol><li>Envoyez le montant par <b>Wave</b> au <b>${esc(CONFIG.adminMomo)}</b>.</li><li>Saisissez ci-dessous la référence de la transaction.</li><li>Le boost s'active dès que l'administrateur confirme la réception.</li></ol></div>
+  <div class="pay"><b>Comment payer :</b><ol><li>Envoyez le montant par ${CONFIG.payments.map(m=>`<b>${esc(m.name)}</b> au ${m.numbers.map(esc).join(' ou ')}`).join(', ')}.</li><li>Saisissez ci-dessous la référence de la transaction.</li><li>Le boost s'active dès que l'administrateur confirme la réception.</li></ol></div>
   <input id="bref" placeholder="Référence de la transaction">
   <button class="btn pri full" onclick="requestBoost('${pid}')">Envoyer ma demande</button>
   <button class="btn ghost full" onclick="closeModal()">Annuler</button>`);
