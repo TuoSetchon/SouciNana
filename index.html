@@ -305,6 +305,7 @@ const COLS=['users','posts','groups','listings','ads','friends','requests','mess
 const PATCH=['posts','groups','ads','stories','events'];
 let S, db=null, auth=null, FV=null, unsubs=[], base={}, parts={};
 let booted=!ONLINE;
+let loadErr=null,usersLoaded=false,fixingProfile=false,authEmail='';
 function emptyState(){const s={session:null};COLS.forEach(c=>s[c]=[]);return s;}
 const U = id => S.users.find(u=>u.id===id);
 const ME = () => S.users.find(u=>u.id===S.session && !u.blocked);
@@ -375,13 +376,26 @@ function applySnap(col,key,sn){
   else if(arr.length&&arr[0].ts!==undefined)arr.sort((a,b)=>b.ts-a.ts);
   S[col]=arr;base[col]={};arr.forEach(d=>base[col][d.id]=JSON.stringify(d));
   if(col==='users'){
+    usersLoaded=true;loadErr=null;
     const mine=arr.find(u=>u.id===S.session);
+    if(!mine&&S.session&&!fixingProfile){fixingProfile=true;repairProfile();}
     if(mine&&mine.blocked){toast("Ce compte a été suspendu par l'administrateur");auth.signOut();return;}
   }
   scheduleRender();
 }
+async function repairProfile(){
+  // Le compte existe mais son profil manque (ex. règles publiées après l'inscription) : on le recrée.
+  const admin=authEmail===CONFIG.adminEmail;
+  const phone=(authEmail.split('@')[0]||'');
+  const doc=admin?{id:S.session,name:'Administrateur '+CONFIG.appName,city:'Boundiali',quartier:'',bio:'Compte officiel de '+CONFIG.appName,avatar:null,cover:null,joined:Date.now(),isAdmin:true,blocked:false,saved:[],hidden:[],interests:[]}
+    :{id:S.session,name:'Membre '+phone.slice(-4),city:'',quartier:'',bio:'',avatar:null,cover:null,joined:Date.now(),isAdmin:false,blocked:false,saved:[],hidden:[],interests:[]};
+  try{await db.collection('users').doc(S.session).set(doc);if(admin)seedOnline(S.session);if(!admin){toast('Complétez votre profil ✏️');setTimeout(()=>go('#/edit-profile'),800);}}
+  catch(e){loadErr=e.code||'inconnue';render();}
+  fixingProfile=false;
+}
 async function onAuth(user){
   unsubs.forEach(u=>u());unsubs=[];parts={};base={};S=emptyState();COLS.forEach(c=>base[c]={});
+  loadErr=null;usersLoaded=false;fixingProfile=false;authEmail=(user&&user.email)||'';
   booted=true;
   if(!user){render();return;}
   S.session=user.uid;render();
@@ -392,7 +406,7 @@ async function onAuth(user){
     if(snap&&!snap.exists)await ref.set({id:me,name:'Administrateur '+CONFIG.appName,city:'Boundiali',quartier:'',bio:'Compte officiel de '+CONFIG.appName,avatar:null,cover:null,joined:Date.now(),isAdmin:true,blocked:false}).catch(fail);
     seedOnline(me);
   }
-  const L=(col,q,key)=>unsubs.push(q.onSnapshot(sn=>applySnap(col,key||col,sn),e=>console.warn(col,e)));
+  const L=(col,q,key)=>unsubs.push(q.onSnapshot(sn=>applySnap(col,key||col,sn),e=>{console.warn(col,e);if(col==='users'||col==='posts'){loadErr=e.code||'inconnue';render();}}));
   const C=c=>db.collection(c);
   L('users',C('users'));
   L('posts',C('posts').orderBy('ts','desc').limit(400));
@@ -1698,7 +1712,11 @@ function render(){
   if(!booted){$('#app').innerHTML=splash('Chargement…');return;}
   const me=ME();const h=location.hash||'#/feed';
   if(!me){
-    if(ONLINE&&S.session){$('#app').innerHTML=splash('Chargement de votre compte…');return;}
+    if(ONLINE&&S.session){
+      if(loadErr){$('#app').innerHTML=splash(loadErr==='permission-denied'
+        ?'⚠️ La base de données refuse l\'accès.<br><br>Les <b>règles de sécurité</b> ne sont pas encore publiées dans Firebase (Firestore Database → Règles → coller les règles → Publier).<br><br><button class="btn pri" onclick="location.reload()">Réessayer</button>'
+        :'⚠️ Impossible de charger votre compte ('+esc(loadErr)+').<br>Vérifiez votre connexion internet.<br><br><button class="btn pri" onclick="location.reload()">Réessayer</button>');return;}
+      $('#app').innerHTML=splash(usersLoaded?'Création de votre profil…':'Chargement de votre compte…');return;}
     $('#app').innerHTML=authView(h==='#/register'?'register':'login');return;
   }
   const [,route,param,sub]=h.split('/');let html;
