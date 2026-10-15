@@ -544,9 +544,9 @@ async function loginEmails(id){
   id=String(id||'').trim();
   if(id.includes('@'))return [id.toLowerCase()];
   if(id.toLowerCase()===CONFIG.adminLogin)return [CONFIG.adminEmail];
-  const d=digitsOf(id);const list=[];
-  try{const s=await db.collection('logins').doc(d).get();if(s.exists&&s.data().email)list.push(s.data().email);}catch(e){}
-  list.push(d+'@'+CONFIG.emailDomain);
+  const d=digitsOf(id);const list=[];let linked=false;
+  try{const s=await db.collection('logins').doc(d).get();if(s.exists){linked=true;const x=s.data();if(x.email)list.push(x.email);if(x.prev)list.push(x.prev);}}catch(e){}
+  if(!linked)list.push(d+'@'+CONFIG.emailDomain);
   return [...new Set(list)];
 }
 function forgotModal(){
@@ -563,8 +563,8 @@ async function sendReset(){
   }
   const ems=(await loginEmails(id)).filter(isRealEmail);
   if(!ems.length){
-    const msg=`Bonjour, j'ai oublié mon mot de passe ${CONFIG.appName}. Mon numéro : ${id}`;
-    return modal(`<h3>🔑 Aucun e-mail lié à ce compte</h3><p class="small">Ce compte n'a pas d'e-mail de récupération : le lien ne peut pas être envoyé automatiquement. Contactez l'administrateur pour récupérer votre compte.</p>
+    const msg=`Bonjour, j'ai oublié mon mot de passe ${CONFIG.appName} et mon compte n'a pas d'e-mail. Pouvez-vous libérer mon numéro ? Mon numéro : ${id}`;
+    return modal(`<h3>🔑 Aucun e-mail lié à ce compte</h3><p class="small">Ce compte n'a pas d'e-mail de récupération : le lien ne peut pas être envoyé automatiquement. Demandez à l'administrateur de <b>libérer votre numéro</b> : vous pourrez alors créer un nouveau compte avec ce même numéro.</p>
     <a class="btn acc full" href="https://wa.me/${esc(CONFIG.adminWhatsApp)}?text=${encodeURIComponent(msg)}" target="_blank" rel="noopener">📲 Contacter l'administrateur sur WhatsApp</a>
     <p class="muted tiny" style="margin-top:8px">Astuce : une fois reconnecté, ajoutez un e-mail de récupération dans « Modifier mon profil ».</p><button class="btn ghost full" onclick="closeModal()">Fermer</button>`);
   }
@@ -580,7 +580,7 @@ async function linkRecoveryEmail(){
     auth.languageCode='fr';await u.verifyBeforeUpdateEmail(em);
     let key=u.email.endsWith('@'+CONFIG.emailDomain)?u.email.split('@')[0]:null;
     if(!key){const q=await db.collection('logins').where('uid','==',u.uid).limit(1).get();if(!q.empty)key=q.docs[0].id;}
-    if(key)await db.collection('logins').doc(key).set({uid:u.uid,email:em});
+    if(key)await db.collection('logins').doc(key).set({uid:u.uid,email:em,prev:u.email});
     modal(`<h3>📧 Confirmez votre e-mail</h3><p class="small">Un lien de confirmation a été envoyé à <b>${esc(em)}</b>. Cliquez dessus pour terminer : vous pourrez ensuite vous connecter avec votre numéro <b>ou</b> cet e-mail, et récupérer votre mot de passe en cas d'oubli.</p><button class="btn pri full" onclick="closeModal()">OK</button>`);
   }catch(e){toast(e.code==='auth/requires-recent-login'?'Par sécurité, déconnectez-vous puis reconnectez-vous avant de lier un e-mail':'Erreur : '+(e.code||'inconnue'));}
 }
@@ -651,9 +651,14 @@ async function doRegister(){
     try{
       const d=digitsOf(ph);
       const ex=await db.collection('logins').doc(d).get().catch(()=>null);
-      if(ex&&ex.exists){toast('Ce numéro a déjà un compte');busy(false);return;}
-      const cred=await auth.createUserWithEmailAndPassword(remail||toEmail(ph),pw);const id=cred.user.uid;
-      db.collection('logins').doc(d).set({uid:id,email:remail||toEmail(ph)}).catch(()=>{});
+      const freed=ex&&ex.exists&&ex.data().freed;
+      if(ex&&ex.exists&&!freed){toast('Ce numéro a déjà un compte. Utilisez « Mot de passe oublié ? »');busy(false);return;}
+      const em=remail||(freed?d+'.'+Date.now().toString(36)+'@'+CONFIG.emailDomain:toEmail(ph));
+      let cred;
+      try{cred=await auth.createUserWithEmailAndPassword(em,pw);}
+      catch(e){if((e.code||'').includes('email-already-in-use')){toast(remail?'Cet e-mail est déjà utilisé par un autre compte':"Ce numéro a déjà un compte. Si vous n'y avez plus accès, demandez à l'administrateur de libérer votre numéro.");busy(false);return;}throw e;}
+      const id=cred.user.uid;
+      await db.collection('logins').doc(d).set({uid:id,email:em}).catch(()=>{});
       await db.collection('users').doc(id).set({id,...profile});
       db.collection('groups').doc('g1').update({members:FV.arrayUnion(id)}).catch(()=>{});
       const n1=uid(),n2=uid();
@@ -1061,10 +1066,16 @@ function feedView(){
   if(ordered.length<4&&ads.length)show(ads[0]);
   if(seen)save();
   const chips=[['all','🌍 Pour vous'],['city',`📍 ${esc(me.city||'Ma ville')}`],['friends','👥 Amis'],['alerts',`⚠️ Alertes${alerts?` (${alerts})`:''}`]];
-  return greeting()+storiesBar()+birthdayCard()+composer()
+  return greeting()+recoveryNudge()+storiesBar()+birthdayCard()+composer()
     +`<div class="chips">${chips.map(c=>`<button class="chip ${feedTab===c[0]?'on':''}" onclick="feedTab='${c[0]}';render()">${c[1]}</button>`).join('')}</div>`
     +(feedTab==='city'&&!me.city?`<div class="card center">Indiquez votre ville dans votre profil. <a href="#/edit-profile">Modifier</a></div>`:'')
     +(out.join('')||empty(feedTab==='alerts'?`Aucune alerte récente à ${esc(me.city||'votre ville')} 👍`:'Aucune publication pour le moment. Soyez le premier !'));
+}
+function recoveryNudge(){
+  const me=ME();if(lsGet('sn_nudge_'+me.id)==='1')return '';
+  const em=ONLINE&&auth&&auth.currentUser?auth.currentUser.email:me.recoveryEmail;
+  if(isRealEmail(em)||me.isAdmin)return '';
+  return `<div class="card row" style="border:1px solid #fbd3ad"><span style="font-size:24px">🔐</span><div class="grow small"><b>Protégez votre compte</b><br>Ajoutez un e-mail pour pouvoir récupérer votre mot de passe en cas d'oubli.</div><div style="display:flex;flex-direction:column;gap:4px"><button class="btn acc sm" onclick="go('#/edit-profile')">Ajouter</button><button class="btn ghost sm" onclick="lsSet('sn_nudge_${me.id}','1');render()">Plus tard</button></div></div>`;
 }
 function peopleCard(){
   const sg=suggestions(10);if(!sg.length)return '';
@@ -1819,7 +1830,9 @@ function adminView(tab){
     ${ONLINE?'':`<div class="card"><h3>Données</h3><p class="muted small">Mode démo : les données sont enregistrées sur cet appareil.</p><button class="btn red full" onclick="resetDemo()">Réinitialiser toutes les données</button></div>`}`;
   }
   if(tab==='users'){
-    body=`<div class="card">${S.users.map(u=>`<div class="list-item"><a href="#/profile/${u.id}">${avatar(u,44)}</a><div class="grow"><b>${esc(u.name)}</b>${u.blocked?' <span class="tag no">Suspendu</span>':''}${u.pro?' <span class="tag acc">Pro</span>':''}<div class="muted small">📍 ${esc(u.city||'')} · ${S.posts.filter(p=>p.author===u.id).length} publ. · inscrit ${ago(u.joined)}</div></div>${u.isAdmin?'<span class="tag ok">Admin</span>':`<button class="btn sm ${u.blocked?'pri':'red'}" onclick="toggleBlock('${u.id}')">${u.blocked?'Réactiver':'Suspendre'}</button>`}</div>`).join('')}</div>`;
+    body=`<div class="card"><h3>🔓 Libérer un numéro de téléphone</h3><p class="muted small">Pour une personne qui a perdu son mot de passe sans e-mail lié : l'ancien compte ne pourra plus se connecter avec ce numéro, et la personne pourra s'inscrire à nouveau avec le même numéro.</p>
+    <div class="row"><input id="freephone" inputmode="tel" placeholder="Numéro (ex. 0708507712)" style="margin:0"><button class="btn red" onclick="freeNumber()">Libérer</button></div></div>
+    <div class="card">${S.users.map(u=>`<div class="list-item"><a href="#/profile/${u.id}">${avatar(u,44)}</a><div class="grow"><b>${esc(u.name)}</b>${u.blocked?' <span class="tag no">Suspendu</span>':''}${u.pro?' <span class="tag acc">Pro</span>':''}<div class="muted small">📍 ${esc(u.city||'')} · ${S.posts.filter(p=>p.author===u.id).length} publ. · inscrit ${ago(u.joined)}</div></div>${u.isAdmin?'<span class="tag ok">Admin</span>':`<button class="btn sm ${u.blocked?'pri':'red'}" onclick="toggleBlock('${u.id}')">${u.blocked?'Réactiver':'Suspendre'}</button><button class="btn sm" onclick="deleteProfile('${u.id}')" title="Supprimer le profil">🗑️</button>`}</div>`).join('')}</div>`;
   }
   if(tab==='boosts'){
     const bs=[...S.boosts].sort((a,b)=>(a.status==='pending'?0:1)-(b.status==='pending'?0:1)||b.ts-a.ts);
@@ -1849,6 +1862,18 @@ function adminView(tab){
   }
   return `<h2 style="margin:4px 0 8px">🛡️ Administration</h2><div class="tabs">${T.map(t=>`<button class="chip ${t[0]===tab?'on':''}" onclick="go('#/admin/${t[0]}')">${t[1]}${t[0]==='boosts'&&pb?` (${pb})`:''}${t[0]==='ads'&&pa?` (${pa})`:''}${t[0]==='reports'&&S.reports.length?` (${S.reports.length})`:''}</button>`).join('')}</div>${body}`;
 }
+async function freeNumber(){
+  const d=digitsOf($('#freephone').value);if(d.length<8)return toast('Numéro invalide');
+  if(!confirm(`Libérer le numéro ${d} ?\n\nL'ancien compte ne pourra plus se connecter avec ce numéro, son profil sera supprimé et la personne pourra créer un nouveau compte.`))return;
+  if(!ONLINE){const u=S.users.find(x=>x.phone&&digitsOf(x.phone)===d&&!x.isAdmin);if(!u)return toast('Aucun compte avec ce numéro');S.users=S.users.filter(x=>x!==u);save();render();return toast('Numéro libéré ✅');}
+  try{
+    const ref=db.collection('logins').doc(d);const snap=await ref.get();
+    if(snap.exists&&snap.data().uid&&!snap.data().freed)await db.collection('users').doc(snap.data().uid).delete().catch(()=>{});
+    await ref.set({uid:'FREED',email:null,freed:true,ts:Date.now()});
+    $('#freephone').value='';toast('Numéro libéré ✅ La personne peut créer un nouveau compte.');
+  }catch(e){toast('Erreur : '+(e.code||'inconnue'));}
+}
+function deleteProfile(id){const u=U(id);if(!u||u.isAdmin)return;if(!confirm(`Supprimer définitivement le profil de ${u.name} ?`))return;S.users=S.users.filter(x=>x.id!==id);save();render();toast('Profil supprimé');}
 function toggleBlock(id){const u=U(id);if(!u||u.isAdmin)return;if(!u.blocked&&!confirm(`Suspendre ${u.name} ?`))return;u.blocked=!u.blocked;save();render();}
 function validateBoost(id,ok){
   const b=S.boosts.find(x=>x.id===id);if(!b)return;b.status=ok?'ok':'refused';b.decidedAt=Date.now();

@@ -81,8 +81,11 @@ service cloud.firestore {
     match /logins/{phone} {
       allow get: if true;
       allow list: if signedIn() && resource.data.uid == me();
-      allow create: if signedIn() && request.resource.data.uid == me();
-      allow update: if signedIn() && resource.data.uid == me() && request.resource.data.uid == me();
+      allow create: if isAdmin() || (signedIn() && request.resource.data.uid == me());
+      // mise à jour par son propriétaire, par l'admin (libérer un numéro) ou pour reprendre un numéro libéré par l'admin
+      allow update: if isAdmin()
+                    || (signedIn() && resource.data.uid == me() && request.resource.data.uid == me())
+                    || (signedIn() && resource.data.get('freed', false) == true && request.resource.data.uid == me());
       allow delete: if isAdmin() || (signedIn() && resource.data.uid == me());
     }
 
