@@ -203,6 +203,20 @@ label.lbl{display:block;font-size:13px;color:var(--mu);margin:4px 0 4px}
 .evdate{flex:0 0 52px;height:56px;border-radius:10px;background:var(--pri2);color:var(--pri);display:flex;flex-direction:column;align-items:center;justify-content:center;font-weight:800;line-height:1}
 .evdate small{font-size:11px;text-transform:uppercase}
 .evcover{height:150px;background:linear-gradient(135deg,var(--acc),#e8505b) center/cover;border-radius:10px 10px 0 0;margin:-12px -12px 10px}
+.amtabs{display:flex;gap:4px;margin-bottom:-1px;overflow-x:auto}
+.amtabs button{border:1px solid var(--bd);border-bottom:0;background:#f7f8fa;padding:9px 12px;border-radius:8px 8px 0 0;font-weight:600;font-size:13px;white-space:nowrap;cursor:pointer;color:var(--mu)}
+.amtabs button.on{background:var(--card);color:var(--tx)}
+.amwrap{background:var(--card);border:1px solid var(--bd);border-radius:0 8px 8px 8px;overflow-x:auto;margin-bottom:12px}
+.amt{border-collapse:collapse;min-width:860px;width:100%;font-size:13px}
+.amt th{text-align:left;padding:9px 8px;border-top:1px solid var(--bd);border-bottom:1px solid var(--bd);color:var(--tx);font-weight:700;white-space:nowrap;background:#f7f8fa}
+.amt td{padding:10px 8px;border-bottom:1px solid var(--bd);vertical-align:top}
+.amt .n{text-align:right;white-space:nowrap}
+.amt td:nth-child(2),.amt th:nth-child(2){min-width:190px}
+.amt tbody tr{cursor:pointer}.amt tbody tr:hover td{background:#f3faf6}
+.tg{width:40px;height:22px;border-radius:11px;background:#bcc0c4;position:relative;border:0;cursor:pointer;flex-shrink:0}
+.tg::after{content:'';position:absolute;top:3px;left:3px;width:16px;height:16px;border-radius:50%;background:#fff;transition:.2s}
+.tg.on{background:#1877f2}.tg.on::after{left:21px}
+.dot{display:inline-block;width:9px;height:9px;border-radius:50%;margin-right:6px;vertical-align:0}
 @media print{header.top,nav.bottom,.back,.demo,.btn{display:none!important}main{padding:0}.card{box-shadow:none}}
 </style>
 </head>
@@ -256,13 +270,14 @@ const FEELINGS=[['😊','heureux(se)'],['🥰','amoureux(se)'],['🥳','en fête
 const ALERTS={elec:['⚡',"Coupure d'électricité",'#e8a317'],eau:['💧',"Coupure d'eau",'#1a73e8'],pharma:['💊','Pharmacie de garde','#0b7a4b'],perdu:['🔎','Objet / personne perdu(e)','#8e44ad'],deces:['🕊️','Avis de décès','#3c4043'],route:['🚧','Route / circulation','#e9710f'],secu:['🚨','Sécurité','#d93025'],info:['📢','Annonce officielle','#1e3c72']};
 const INTERESTS=['Mode & beauté','Sport','Football','Musique','Cuisine','Business','Éducation','Religion','Technologie','Téléphones','Auto & moto','Immobilier','Agriculture','Santé & bien-être','Voyage','Cinéma & séries','Événements','Emploi'];
 const OBJECTIVES={
-  notoriete:['👁️','Notoriété',"Montrer votre marque au plus grand nombre de personnes",['page','whatsapp','link']],
-  messages:['💬','Messages WhatsApp','Recevoir des messages de clients sur WhatsApp',['whatsapp']],
-  appels:['📞','Appels','Recevoir des appels de clients',['call']],
-  trafic:['🔗','Trafic','Envoyer des personnes vers votre page ou votre site',['page','link']],
-  ventes:['🛒','Ventes','Obtenir des commandes',['order','whatsapp','link']],
-  interactions:['👍','Interactions','Faire réagir, commenter et partager une de vos publications',['post']]
+  notoriete:['📢','Notoriété',"Montrer vos publicités aux personnes les plus susceptibles de s'en souvenir",['page','whatsapp','link'],'Portée'],
+  trafic:['🖱️','Trafic','Envoyer des personnes vers votre page, votre WhatsApp ou votre site',['page','link','whatsapp'],'Clics sur le lien'],
+  interactions:['💬','Interactions','Obtenir des messages WhatsApp, des appels ou des réactions sur une publication',[],'Interactions'],
+  prospects:['🔻','Prospects','Collecter les contacts de clients intéressés par votre offre',['whatsapp','call'],'Prospects'],
+  ventes:['🛍️','Ventes',"Trouver des personnes susceptibles d'acheter vos produits ou services",['order','whatsapp','link'],'Commandes']
 };
+const ENGAGE={post:['👍','Une publication','post','Interactions avec la publication'],messages:['💬','Messages WhatsApp','whatsapp','Conversations'],calls:['📞','Appels','call','Appels']};
+const LEGACY_OBJ={messages:['interactions','messages'],appels:['interactions','calls']};
 const PAGE_CATS=['Commerce','Restaurant / Maquis','Mode & Beauté','Services','Éducation','Santé','Transport','Immobilier','BTP / Construction','Événementiel','Agriculture','Association / Religion','Média','Autre'];
 const CATS=['Tout','Véhicules','Électronique','Mode','Maison','Alimentation','Immobilier','Services','Emploi','Autres'];
 
@@ -522,6 +537,53 @@ function seed(){
 
 /* ================= AUTHENTIFICATION ================= */
 const toEmail = id => id.trim().toLowerCase()===CONFIG.adminLogin ? CONFIG.adminEmail : normPhone(id).replace(/\D/g,'')+'@'+CONFIG.emailDomain;
+const digitsOf = p => normPhone(p).replace(/\D/g,'');
+const isRealEmail = e => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e||'') && !String(e).toLowerCase().endsWith('@'+CONFIG.emailDomain);
+const maskEmail = e => { const [a,b]=String(e).split('@'); return a.slice(0,2)+'•••@'+b; };
+async function loginEmails(id){
+  id=String(id||'').trim();
+  if(id.includes('@'))return [id.toLowerCase()];
+  if(id.toLowerCase()===CONFIG.adminLogin)return [CONFIG.adminEmail];
+  const d=digitsOf(id);const list=[];
+  try{const s=await db.collection('logins').doc(d).get();if(s.exists&&s.data().email)list.push(s.data().email);}catch(e){}
+  list.push(d+'@'+CONFIG.emailDomain);
+  return [...new Set(list)];
+}
+function forgotModal(){
+  modal(`<h3>🔑 Mot de passe oublié</h3><p class="muted small" style="margin-bottom:8px">Entrez le numéro de téléphone ou l'e-mail de votre compte. Nous vous enverrons un lien pour choisir un nouveau mot de passe.</p>
+  <input id="fid" type="text" placeholder="Numéro de téléphone ou e-mail" autocapitalize="none" value="${esc(($('#lphone')||{}).value||'')}">
+  <button class="btn pri full" onclick="sendReset()">Envoyer le lien de réinitialisation</button><button class="btn ghost full" onclick="closeModal()">Annuler</button>`);
+}
+async function sendReset(){
+  const id=($('#fid').value||'').trim();if(!id)return toast('Entrez votre numéro ou votre e-mail');
+  if(!ONLINE){
+    const u=S.users.find(x=>x.phone&&digitsOf(x.phone)===digitsOf(id));if(!u)return toast('Aucun compte avec ce numéro');
+    const np=prompt('Mode démo : choisissez un nouveau mot de passe (6 caractères min.)');if(!np||np.length<6)return toast('Mot de passe trop court');
+    u.pw=hashPw(np);save();closeModal();return toast('Mot de passe modifié ✅');
+  }
+  const ems=(await loginEmails(id)).filter(isRealEmail);
+  if(!ems.length){
+    const msg=`Bonjour, j'ai oublié mon mot de passe ${CONFIG.appName}. Mon numéro : ${id}`;
+    return modal(`<h3>🔑 Aucun e-mail lié à ce compte</h3><p class="small">Ce compte n'a pas d'e-mail de récupération : le lien ne peut pas être envoyé automatiquement. Contactez l'administrateur pour récupérer votre compte.</p>
+    <a class="btn acc full" href="https://wa.me/${esc(CONFIG.adminWhatsApp)}?text=${encodeURIComponent(msg)}" target="_blank" rel="noopener">📲 Contacter l'administrateur sur WhatsApp</a>
+    <p class="muted tiny" style="margin-top:8px">Astuce : une fois reconnecté, ajoutez un e-mail de récupération dans « Modifier mon profil ».</p><button class="btn ghost full" onclick="closeModal()">Fermer</button>`);
+  }
+  try{auth.languageCode='fr';await auth.sendPasswordResetEmail(ems[0]);
+    modal(`<h3>📧 E-mail envoyé</h3><p class="small">Un lien de réinitialisation a été envoyé à <b>${esc(maskEmail(ems[0]))}</b>. Ouvrez-le (pensez à regarder dans les spams), choisissez un nouveau mot de passe, puis reconnectez-vous avec votre numéro.</p><button class="btn pri full" onclick="closeModal()">OK</button>`);}
+  catch(e){toast('Envoi impossible : '+(e.code||'erreur inconnue'));}
+}
+async function linkRecoveryEmail(){
+  const em=($('#recmail').value||'').trim().toLowerCase();if(!isRealEmail(em))return toast('Adresse e-mail invalide');
+  if(!ONLINE){ME().recoveryEmail=em;save();return toast('E-mail de récupération enregistré (mode démo) ✅');}
+  const u=auth.currentUser;
+  try{
+    auth.languageCode='fr';await u.verifyBeforeUpdateEmail(em);
+    let key=u.email.endsWith('@'+CONFIG.emailDomain)?u.email.split('@')[0]:null;
+    if(!key){const q=await db.collection('logins').where('uid','==',u.uid).limit(1).get();if(!q.empty)key=q.docs[0].id;}
+    if(key)await db.collection('logins').doc(key).set({uid:u.uid,email:em});
+    modal(`<h3>📧 Confirmez votre e-mail</h3><p class="small">Un lien de confirmation a été envoyé à <b>${esc(em)}</b>. Cliquez dessus pour terminer : vous pourrez ensuite vous connecter avec votre numéro <b>ou</b> cet e-mail, et récupérer votre mot de passe en cas d'oubli.</p><button class="btn pri full" onclick="closeModal()">OK</button>`);
+  }catch(e){toast(e.code==='auth/requires-recent-login'?'Par sécurité, déconnectez-vous puis reconnectez-vous avant de lier un e-mail':'Erreur : '+(e.code||'inconnue'));}
+}
 function authErr(e){const c=(e&&e.code)||'';
   if(c.includes('email-already-in-use'))return 'Ce numéro a déjà un compte';
   if(c.includes('invalid-credential')||c.includes('wrong-password')||c.includes('user-not-found')||c.includes('invalid-email'))return 'Numéro ou mot de passe incorrect';
@@ -534,9 +596,10 @@ function authView(mode){
   return `<div class="auth"><div class="auth-hero"><div class="auth-logo">${esc(CONFIG.appName)}</div><p class="muted"><span class="flag"></span> ${esc(CONFIG.slogan)}</p></div>
   <div class="card auth-card">${mode==='login'?`
     <h2>Connexion</h2>
-    <input id="lphone" type="text" placeholder="Numéro de téléphone (ou identifiant admin)" autocapitalize="none" autocorrect="off" spellcheck="false" autocomplete="username">
+    <input id="lphone" type="text" placeholder="Numéro de téléphone ou e-mail" autocapitalize="none" autocorrect="off" spellcheck="false" autocomplete="username">
     <input id="lpw" type="password" placeholder="Mot de passe" autocomplete="current-password" onkeydown="if(event.key==='Enter')doLogin()">
     <button class="btn pri full" onclick="doLogin()">Se connecter</button>
+    <p class="center small" style="margin-top:12px"><a href="javascript:forgotModal()">Mot de passe oublié ?</a></p>
     <div class="sep"></div>
     <button class="btn acc full" onclick="go('#/register')">Créer un nouveau compte</button>`:`
     <h2>Inscription</h2>
@@ -544,6 +607,7 @@ function authView(mode){
     <input id="rphone" placeholder="Numéro de téléphone" inputmode="tel" autocomplete="username">
     <input id="rcity" list="cities" placeholder="Votre ville (ex. Abidjan, Bouaké, Boundiali…)">${cityList()}
     <input id="rq" placeholder="Votre quartier (facultatif)">
+    <input id="remail" type="email" placeholder="E-mail (recommandé, pour récupérer votre mot de passe)" autocomplete="email" autocapitalize="none">
     <div class="row"><select id="rgender" style="flex:1"><option value="">Sexe</option><option value="f">Femme</option><option value="m">Homme</option></select><input id="rbday" type="date" style="flex:1.3" title="Date de naissance"></div>
     <p class="muted tiny" style="margin:-4px 0 8px">Date de naissance : elle n'est pas affichée publiquement.</p>
     <input id="rpw" type="password" placeholder="Mot de passe (6 caractères min.)" autocomplete="new-password">
@@ -555,7 +619,14 @@ const normCity=c=>{c=String(c||'').trim();const f=CITIES.find(x=>x.toLowerCase()
 async function doLogin(){
   const id=$('#lphone').value,pw=$('#lpw').value;
   if(!id||!pw)return toast('Entrez votre numéro et votre mot de passe');
-  if(ONLINE){busy(true);try{await auth.signInWithEmailAndPassword(toEmail(id),pw);location.hash='#/feed';}catch(e){toast(authErr(e));}busy(false);return;}
+  if(ONLINE){
+    busy(true);let last=null;
+    for(const em of await loginEmails(id)){
+      try{await auth.signInWithEmailAndPassword(em,pw);location.hash='#/feed';busy(false);return;}
+      catch(e){last=e;if(!/invalid-credential|wrong-password|user-not-found|invalid-email|invalid-login/.test(e.code||''))break;}
+    }
+    toast(authErr(last));busy(false);return;
+  }
   const ph=normPhone(id);
   const u=S.users.find(x=>x.phone&&normPhone(x.phone)===ph&&x.pw===hashPw(pw));
   if(!u)return toast('Numéro ou mot de passe incorrect');
@@ -571,12 +642,18 @@ async function doRegister(){
   if(!gender)return toast('Indiquez votre sexe');
   if(!bday||ageOf(bday)<13)return toast('Indiquez votre date de naissance (13 ans minimum)');
   if(pw.length<6)return toast('Mot de passe : 6 caractères minimum');
+  const remail=($('#remail').value||'').trim().toLowerCase();
+  if(remail&&!isRealEmail(remail))return toast('Adresse e-mail invalide (ou laissez vide)');
   const welcome=`Bienvenue sur ${CONFIG.appName}, ${first(name)} ! Ajoutez une photo de profil et retrouvez vos amis.`;
   const profile={name,city,quartier:q,gender,birthday:bday,interests:[],bio:'',avatar:null,cover:null,joined:Date.now(),isAdmin:false,blocked:false,saved:[],hidden:[]};
   if(ONLINE){
     busy(true);
     try{
-      const cred=await auth.createUserWithEmailAndPassword(toEmail(ph),pw);const id=cred.user.uid;
+      const d=digitsOf(ph);
+      const ex=await db.collection('logins').doc(d).get().catch(()=>null);
+      if(ex&&ex.exists){toast('Ce numéro a déjà un compte');busy(false);return;}
+      const cred=await auth.createUserWithEmailAndPassword(remail||toEmail(ph),pw);const id=cred.user.uid;
+      db.collection('logins').doc(d).set({uid:id,email:remail||toEmail(ph)}).catch(()=>{});
       await db.collection('users').doc(id).set({id,...profile});
       db.collection('groups').doc('g1').update({members:FV.arrayUnion(id)}).catch(()=>{});
       const n1=uid(),n2=uid();
@@ -587,7 +664,7 @@ async function doRegister(){
     busy(false);return;
   }
   if(S.users.some(u=>normPhone(u.phone)===ph))return toast('Ce numéro a déjà un compte');
-  const u={id:uid(),phone:ph,pw:hashPw(pw),...profile};
+  const u={id:uid(),phone:ph,pw:hashPw(pw),...profile,recoveryEmail:remail||''};
   S.users.push(u);
   const g1=S.groups.find(g=>g.id==='g1');if(g1)g1.members.push(u.id);
   notify(u.id,welcome,'#/edit-profile');notify('admin',`Nouvelle inscription : ${name} (${city})`,'#/admin/users');
@@ -622,7 +699,7 @@ function createMenu(){
   <button class="opt" onclick="closeModal();go('#/event-new')">📅 Événement</button>
   <button class="opt" onclick="closeModal();navThen('#/market',sellModal)">🛒 Vendre un article</button>
   <button class="opt" onclick="closeModal();go('#/page-edit/new')">📄 Page professionnelle</button>
-  <button class="opt" onclick="closeModal();AD=null;go('#/ad-new/me')">📣 Campagne publicitaire</button>`);
+  <button class="opt" onclick="closeModal();setTimeout(adCreateModal,50)">📣 Campagne publicitaire</button>`);
 }
 
 /* ================= AMIS (outils) ================= */
@@ -1014,7 +1091,7 @@ function adHref(a){
   return a.contact?contactHref(a.contact):'';
 }
 function adCard(a){
-  if(a.objective==='interactions'){const p=S.posts.find(x=>x.id===a.postId);return p?postCard(p,false,true):'';}
+  if(a.postId){const p=S.posts.find(x=>x.id===a.postId);return p?postCard(p,false,true):'';}
   const pg=a.pageId?P(a.pageId):null;const ow=!pg&&a.owner?U(a.owner):null;
   const av=pg?`<a href="#/page/${pg.id}">${pageAvatar(pg)}</a>`:ow?`<a href="#/profile/${ow.id}">${avatar(ow)}</a>`:`<span class="av" style="width:40px;height:40px;background:var(--acc)">📣</span>`;
   const nm=pg?`<a class="name" href="#/page/${pg.id}">${esc(pg.name)}</a>`:ow?`<a class="name" href="#/profile/${ow.id}">${esc(a.advertiser)}</a>`:`<b>${esc(a.advertiser)}</b>`;
@@ -1051,7 +1128,7 @@ const statusTag = s => s==='ok'?'<span class="tag ok">Activé</span>':s==='refus
 function adsInfoModal(){
   modal(`<h3>📣 Faire de la publicité</h3><p>Touchez des clients dans votre ville ou dans toute la Côte d'Ivoire, avec le budget de votre choix.</p>
   <div class="pay"><ol><li>Choisissez un <b>objectif</b> (messages WhatsApp, appels, ventes, notoriété…)</li><li>Définissez votre <b>audience</b> : villes, âge, sexe, centres d'intérêt</li><li>Fixez votre <b>budget</b> (dès ${fmtF(CONFIG.ads.minDaily)} par jour) et vos <b>dates</b></li><li>Payez par ${CONFIG.payments.map(m=>esc(m.name)).join(', ')} : votre publicité est diffusée dès qu'elle est validée par l'administrateur.</li></ol></div>
-  <button class="btn acc full" onclick="closeModal();go('#/ad-new/me')">🚀 Créer une campagne</button>
+  <button class="btn acc full" onclick="setTimeout(adCreateModal,50)">🚀 Créer une campagne</button>
   <button class="btn full" onclick="closeModal();go('#/my-ads')">📊 Gestionnaire de publicités</button>
   <button class="btn full" onclick="closeModal();go('#/billing')">🧾 Facturation</button>
   <p class="muted small center" style="margin-top:10px">Besoin d'aide ? Contactez l'administrateur :</p>
@@ -1129,7 +1206,12 @@ function editProfileView(){
   <label class="lbl">Date de naissance</label><input id="ebday" type="date" value="${esc(me.birthday||'')}">
   <label class="lbl">Sexe</label><select id="egender"><option value="">—</option><option value="f" ${me.gender==='f'?'selected':''}>Femme</option><option value="m" ${me.gender==='m'?'selected':''}>Homme</option></select>
   <label class="lbl">Centres d'intérêt</label><div class="row wrap" style="gap:6px;margin-bottom:8px">${INTERESTS.map(i=>`<label class="chip" style="display:inline-flex;gap:6px;align-items:center"><input type="checkbox" class="eint" value="${esc(i)}" style="width:auto;margin:0" ${(me.interests||[]).includes(i)?'checked':''}>${esc(i)}</label>`).join('')}</div>
-  <button class="btn pri full" onclick="saveProfile()">Enregistrer</button></div>`;
+  <button class="btn pri full" onclick="saveProfile()">Enregistrer</button></div>
+  <div class="card"><h3>🔐 Sécurité du compte</h3>
+  <p class="muted small">Liez un e-mail pour pouvoir réinitialiser votre mot de passe en cas d'oubli, et vous connecter avec votre numéro ou cet e-mail.</p>
+  ${(()=>{const cur=ONLINE&&auth&&auth.currentUser?auth.currentUser.email:me.recoveryEmail;return isRealEmail(cur)?`<p class="small" style="margin:6px 0">E-mail actuel : <b>${esc(cur)}</b></p>`:'<p class="small" style="margin:6px 0;color:#b25b0b">⚠️ Aucun e-mail de récupération</p>';})()}
+  <input id="recmail" type="email" placeholder="Votre adresse e-mail" autocapitalize="none">
+  <button class="btn soft full" style="margin-top:0" onclick="linkRecoveryEmail()">Lier cet e-mail</button></div>`;
 }
 function saveProfile(){
   const me=ME();const n=$('#ename').value.trim();if(n.length<3)return toast('Nom trop court');
@@ -1449,146 +1531,242 @@ function savePro(off){
   save();closeModal();render();toast(off?'Vous êtes revenu(e) à un compte personnel':'Compte professionnel activé 💼');
 }
 
-/* ================= GESTIONNAIRE DE PUBLICITÉS ================= */
+/* ================= GESTIONNAIRE DE PUBLICITÉS (façon Meta) ================= */
 function adSources(){const me=ME();const s=[];if(me.pro)s.push({id:'me',name:me.name+' (compte pro)'});myPages().forEach(p=>s.push({id:p.id,name:'Page : '+p.name}));return s;}
 const dayMs=864e5,todayStr=()=>new Date().toISOString().slice(0,10),addDays=(d,n)=>new Date(new Date(d+'T12:00').getTime()+n*dayMs).toISOString().slice(0,10);
+function objOf(a){
+  let k=a.objective,e=a.engage;if(LEGACY_OBJ[k]){e=LEGACY_OBJ[k][1];k='interactions';}
+  const o=OBJECTIVES[k]||OBJECTIVES.notoriete;
+  return {key:k,engage:e||'post',icon:o[0],name:o[1]+(k==='interactions'?' · '+ENGAGE[e||'post'][1]:''),res:k==='interactions'?ENGAGE[e||'post'][3]:o[4]};
+}
+function adCtas(x){return x.objective==='interactions'?[ENGAGE[x.engage||'post'][2]]:OBJECTIVES[x.objective][3];}
 function adCalc(x){
   const days=Math.max(1,Math.round((new Date(x.end+'T12:00')-new Date(x.start+'T12:00'))/dayMs)+1);
   const total=Math.round(x.budgetType==='daily'?(+x.budget||0)*days:(+x.budget||0));
   const views=Math.floor(total/CONFIG.ads.cpm*1000);
-  const reach=S.users.filter(u=>!u.blocked&&!u.isAdmin&&audienceMatch({audience:x.audience||{cities:x.cities,gender:x.gender,ageMin:x.ageMin,ageMax:x.ageMax,interests:x.interests}},u)).length;
+  const reach=S.users.filter(u=>!u.blocked&&!u.isAdmin&&audienceMatch({audience:{cities:x.cities,gender:x.gender,ageMin:x.ageMin,ageMax:x.ageMax,interests:x.interests}},u)).length;
   return {days,total,views,reach};
 }
 let AD=null;
-function newAdDraft(src){return {src,objective:'messages',title:'',text:'',img:null,ctaType:'whatsapp',contact:'',link:'',postId:'',cities:[],ageMin:18,ageMax:65,gender:'all',interests:[],budgetType:'daily',budget:1000,start:todayStr(),end:addDays(todayStr(),6),pay:CONFIG.payments[0].id,ref:''};}
+function newAdDraft(src){return {id:null,src,name:'',objective:'notoriete',engage:'post',title:'',text:'',img:null,ctaType:'page',contact:'',link:'',postId:'',cities:[],ageMin:18,ageMax:65,gender:'all',interests:[],budgetType:'daily',budget:1000,start:todayStr(),end:addDays(todayStr(),6),pay:CONFIG.payments[0].id,ref:''};}
+function prefillAd(x){const me=ME();const pg=x.src==='me'?null:P(x.src);x.contact=x.contact||(pg?pg.contact:me.proContact)||'';const city=(pg&&pg.city)||me.city;if(!x.cities.length&&city)x.cities=[city];}
+function adToDraft(a){
+  const o=objOf(a);const t=a.audience||{};
+  return {id:null,src:a.pageId||'me',name:a.name||a.title||'',objective:o.key,engage:o.engage,title:a.objective==='interactions'&&o.engage==='post'?'':(a.title||''),text:a.text||'',img:a.img||null,ctaType:a.ctaType||'page',contact:a.contact||'',link:a.link||'',postId:a.postId||'',
+    cities:[...(t.cities||[])],ageMin:t.ageMin||18,ageMax:t.ageMax||65,gender:t.gender||'all',interests:[...(t.interests||[])],budgetType:a.budgetType||'daily',budget:a.budget||1000,
+    start:a.startDate&&a.startDate>=todayStr()?a.startDate:todayStr(),end:a.endDate&&a.endDate>=todayStr()?a.endDate:addDays(todayStr(),6),pay:a.payMethod||CONFIG.payments[0].id,ref:a.ref||''};
+}
 function adEstimate(){
   const e=$('#adest');if(!AD||!e)return;
   const c=adCalc(AD);
-  if(e)e.innerHTML=`<div class="row between"><span>Durée</span><b>${plural(c.days,'jour')}</b></div><div class="row between"><span>Budget total</span><b>${fmtF(c.total)}</b></div><div class="row between"><span>Affichages estimés</span><b>≈ ${c.views.toLocaleString('fr-FR')}</b></div><div class="row between"><span>Audience correspondante</span><b>${plural(c.reach,'personne')}</b></div>`;
+  e.innerHTML=`<div class="row between"><span>Durée</span><b>${plural(c.days,'jour')}</b></div><div class="row between"><span>Budget total</span><b>${fmtF(c.total)}</b></div><div class="row between"><span>Affichages estimés</span><b>≈ ${c.views.toLocaleString('fr-FR')}</b></div><div class="row between"><span>Audience correspondante</span><b>${plural(c.reach,'personne')}</b></div>`;
   const pv=$('#adprevcard');if(pv)pv.innerHTML=adPreview();
 }
 function adPreview(){
   const me=ME();const pg=AD.src==='me'?null:P(AD.src);
-  if(AD.objective==='interactions'){const p=S.posts.find(x=>x.id===AD.postId);return p?postCard(p,false,true):'<p class="muted small">Choisissez la publication à promouvoir.</p>';}
-  return adCard({id:'preview',owner:me.id,pageId:pg?pg.id:null,advertiser:pg?pg.name:me.name,title:AD.title||'Titre de votre annonce',text:AD.text||'Le texte de votre annonce apparaîtra ici.',img:AD.img,ctaType:AD.ctaType,contact:AD.contact||'0',link:AD.link,cta:CTA_LABELS[AD.ctaType]});
+  if(AD.objective==='interactions'&&AD.engage==='post'){const p=S.posts.find(x=>x.id===AD.postId);return p?postCard(p,false,true):'<p class="muted small">Choisissez la publication à promouvoir.</p>';}
+  return adCard({id:'preview',owner:me.id,pageId:pg?pg.id:null,advertiser:pg?pg.name:me.name,title:AD.title||'Titre de votre annonce',text:AD.text||'Le texte principal de votre annonce apparaîtra ici.',img:AD.img,ctaType:AD.ctaType,contact:AD.contact||'0',link:AD.link,cta:CTA_LABELS[AD.ctaType]});
 }
-function adSet(k,v,full){AD[k]=v;if(full)render();else adEstimate();}
+function adSet(k,v,full){AD[k]=v;if(k==='objective'||k==='engage'){const c=adCtas(AD);const pg=AD.src==='me'?null:P(AD.src);if(!c.includes(AD.ctaType))AD.ctaType=c.find(x=>x!=='page'||pg)||c[0];if(k==='objective'&&(!AD.name||/^Nouvelle campagne de /.test(AD.name)))AD.name='Nouvelle campagne de '+OBJECTIVES[v][1];}if(full)render();else adEstimate();}
+function adCreateModal(){
+  modal(`<h3>Créer une campagne</h3><label class="lbl">Type d'achat</label><select disabled><option>Enchères (coût pour 1 000 affichages)</option></select>
+  <b style="display:block;margin:12px 0 4px">Choisissez un objectif de campagne</b>
+  ${Object.entries(OBJECTIVES).map(([k,o],i)=>`<label class="opt" style="align-items:flex-start"><input type="radio" name="cobj" value="${k}" ${i===0?'checked':''} style="width:auto;margin:4px 0 0"><span style="font-size:22px">${o[0]}</span><span><b>${o[1]}</b><br><span class="muted tiny">${o[2]}</span></span></label>`).join('')}
+  <div class="row" style="margin-top:12px"><button class="btn grow" onclick="closeModal()">Annuler</button><button class="btn pri grow" onclick="startAd(document.querySelector('input[name=cobj]:checked').value)">Continuer</button></div>`);
+}
+function startAd(obj){
+  closeModal();const srcs=adSources();if(!srcs.length){AD=null;return nav('#/ad-new/me');}
+  AD=newAdDraft(srcs[0].id);prefillAd(AD);adSet('objective',obj);nav('#/ad-new/'+AD.src);
+}
 function adNewView(src){
-  const me=ME();const srcs=adSources();
+  const srcs=adSources();
   if(!srcs.length)return `<a class="back" href="javascript:history.back()">← Retour</a><div class="card center"><h3>📣 Créer une campagne</h3><p class="muted" style="margin:8px 0">Pour faire de la publicité, passez en compte professionnel ou créez une page professionnelle.</p><button class="btn pri full" onclick="proModal()">💼 Passer en compte professionnel</button><button class="btn acc full" onclick="go('#/page-edit/new')">📄 Créer une page</button></div>`;
-  if(!srcs.some(s=>s.id===src))src=srcs[0].id;
-  if(!AD||AD.src!==src){AD=newAdDraft(src);const pg=src==='me'?null:P(src);AD.contact=(pg?pg.contact:me.proContact)||'';const city=(pg&&pg.city)||me.city;if(city)AD.cities=[city];}
-  const pg=src==='me'?null:P(src);const ob=OBJECTIVES[AD.objective];
-  if(!ob[3].includes(AD.ctaType))AD.ctaType=ob[3].find(k=>k!=='page'||pg)||ob[3][0];
+  if(!AD||AD.id){AD=newAdDraft(srcs.some(s=>s.id===src)?src:srcs[0].id);prefillAd(AD);adSet('objective','notoriete');}
+  if(!srcs.some(s=>s.id===AD.src))AD.src=srcs[0].id;
+  return adForm(srcs);
+}
+function adEditView(id){
+  const a=S.ads.find(x=>x.id===id);
+  if(!a||a.owner!==ME().id||a.status!=='draft')return empty('Seuls vos brouillons peuvent être modifiés.');
+  if(!AD||AD.id!==id){AD=adToDraft(a);AD.id=id;}
+  return adForm(adSources());
+}
+function adForm(srcs){
+  const me=ME();const pg=AD.src==='me'?null:P(AD.src);const o=OBJECTIVES[AD.objective];
+  const ctas=adCtas(AD).filter(k=>k!=='page'||pg);if(!ctas.includes(AD.ctaType))AD.ctaType=ctas[0];
   const myPosts=S.posts.filter(p=>(pg?p.pageId===pg.id:p.author===me.id&&!p.pageId)&&!p.groupId).slice(0,20);
-  const sec=(n,t)=>`<div class="row" style="margin:14px 0 6px"><span class="tag ok">${n}</span><b>${t}</b></div>`;
+  const lvl=(ic,t,sub)=>`<div class="row" style="margin-bottom:8px"><span style="font-size:20px">${ic}</span><div><b>${t}</b><div class="muted tiny">${sub}</div></div></div>`;
   setTimeout(adEstimate,0);
-  return `<a class="back" href="javascript:history.back()">← Retour</a><div class="card"><h3>📣 Créer une campagne publicitaire</h3>
-  <label class="lbl">Annonceur</label>
-  <select onchange="go('#/ad-new/'+this.value)">${srcs.map(s=>`<option value="${s.id}" ${s.id===src?'selected':''}>${esc(s.name)}</option>`).join('')}</select>
+  return `<div class="row between" style="margin:4px 0 8px"><a class="back" style="margin:0" href="#/my-ads">← Gestionnaire de publicités</a>${AD.id?'<span class="tag">Brouillon</span>':''}</div>
+  <div class="card">${lvl('📁','Campagne','Nom et objectif')}
+  <label class="lbl">Nom de la campagne</label><input value="${esc(AD.name)}" placeholder="Ex. Promo rentrée" oninput="AD.name=this.value">
+  <b style="display:block;margin:8px 0 6px">Objectif de la campagne</b>
+  <div class="ctool" style="margin-top:0">${Object.entries(OBJECTIVES).map(([k,x])=>`<button class="${AD.objective===k?'on':''}" onclick="adSet('objective','${k}',true)">${x[0]} ${x[1]}<br><span class="muted tiny" style="font-weight:400">${x[2]}</span></button>`).join('')}</div>
+  ${AD.objective==='interactions'?`<label class="lbl" style="margin-top:8px">Où voulez-vous obtenir des interactions ?</label><div class="chips">${Object.entries(ENGAGE).map(([k,e])=>`<button class="chip ${AD.engage===k?'on':''}" onclick="adSet('engage','${k}',true)">${e[0]} ${e[1]}</button>`).join('')}</div>`:''}
+  <p class="muted tiny">Type d'achat : Enchères · Résultat mesuré : <b>${esc(AD.objective==='interactions'?ENGAGE[AD.engage][3]:o[4])}</b></p></div>
 
-  ${sec(1,'Objectif de la campagne')}
-  <div class="ctool" style="margin-top:0">${Object.entries(OBJECTIVES).map(([k,o])=>`<button class="${AD.objective===k?'on':''}" onclick="adSet('objective','${k}',true)">${o[0]} ${o[1]}<br><span class="muted tiny" style="font-weight:400">${o[2]}</span></button>`).join('')}</div>
-
-  ${sec(2,'Audience')}
-  <label class="lbl">Lieux (laissez vide pour toute la Côte d'Ivoire)</label>
-  <div class="row wrap" style="gap:6px;margin-bottom:6px">${AD.cities.map((c,i)=>`<span class="chip on">📍 ${esc(c)} <b style="cursor:pointer" onclick="AD.cities.splice(${i},1);render()">✕</b></span>`).join('')||'<span class="chip">🇨🇮 Toute la Côte d\'Ivoire</span>'}</div>
-  <div class="row"><input id="adcityin" list="cities" placeholder="Ajouter une ville"><button class="btn sm" style="margin-bottom:8px" onclick="const v=normCity($('#adcityin').value);if(v&&!AD.cities.includes(v)){AD.cities.push(v);render();}">+ Ajouter</button></div>${cityList()}
-  <div class="row"><div class="grow"><label class="lbl">Âge minimum</label><input type="number" min="13" max="65" value="${AD.ageMin}" oninput="adSet('ageMin',+this.value)"></div><div class="grow"><label class="lbl">Âge maximum</label><input type="number" min="13" max="99" value="${AD.ageMax}" oninput="adSet('ageMax',+this.value)"></div></div>
-  <label class="lbl">Sexe</label><div class="chips">${[['all','Tous'],['f','Femmes'],['m','Hommes']].map(g=>`<button class="chip ${AD.gender===g[0]?'on':''}" onclick="adSet('gender','${g[0]}',true)">${g[1]}</button>`).join('')}</div>
-  <label class="lbl">Centres d'intérêt (facultatif)</label><div class="chips" style="flex-wrap:wrap">${INTERESTS.map(i=>`<button class="chip ${AD.interests.includes(i)?'on':''}" onclick="AD.interests=AD.interests.includes('${i}')?AD.interests.filter(x=>x!=='${i}'):[...AD.interests,'${i}'];render()">${esc(i)}</button>`).join('')}</div>
-
-  ${sec(3,'Budget et calendrier')}
+  <div class="card">${lvl('🗂️','Ensemble de publicités','Budget, calendrier, audience et placements')}
+  <b style="display:block;margin:4px 0 6px">Budget et calendrier</b>
   <div class="chips"><button class="chip ${AD.budgetType==='daily'?'on':''}" onclick="adSet('budgetType','daily',true)">Budget quotidien</button><button class="chip ${AD.budgetType==='total'?'on':''}" onclick="adSet('budgetType','total',true)">Budget total</button></div>
   <label class="lbl">${AD.budgetType==='daily'?'Montant par jour':'Montant total'} (FCFA)</label>
   <input type="number" inputmode="numeric" min="${CONFIG.ads.minDaily}" step="500" value="${AD.budget}" oninput="adSet('budget',+this.value)">
   <div class="row"><div class="grow"><label class="lbl">Début</label><input type="date" min="${todayStr()}" value="${AD.start}" oninput="adSet('start',this.value)"></div><div class="grow"><label class="lbl">Fin</label><input type="date" min="${todayStr()}" value="${AD.end}" oninput="adSet('end',this.value)"></div></div>
   <div class="pay" id="adest"></div>
   <p class="muted tiny">Tarif : ${fmtF(CONFIG.ads.cpm)} pour 1 000 affichages. La diffusion s'arrête à la date de fin ou quand le budget est atteint.</p>
+  <b style="display:block;margin:12px 0 6px">Audience</b>
+  <label class="lbl">Lieux (laissez vide pour toute la Côte d'Ivoire)</label>
+  <div class="row wrap" style="gap:6px;margin-bottom:6px">${AD.cities.map((c,i)=>`<span class="chip on">📍 ${esc(c)} <b style="cursor:pointer" onclick="AD.cities.splice(${i},1);render()">✕</b></span>`).join('')||'<span class="chip">🇨🇮 Toute la Côte d\'Ivoire</span>'}</div>
+  <div class="row"><input id="adcityin" list="cities" placeholder="Ajouter une ville"><button class="btn sm" style="margin-bottom:8px" onclick="const v=normCity($('#adcityin').value);if(v&&!AD.cities.includes(v)){AD.cities.push(v);render();}">+ Ajouter</button></div>${cityList()}
+  <div class="row"><div class="grow"><label class="lbl">Âge minimum</label><input type="number" min="13" max="65" value="${AD.ageMin}" oninput="adSet('ageMin',+this.value)"></div><div class="grow"><label class="lbl">Âge maximum</label><input type="number" min="13" max="99" value="${AD.ageMax}" oninput="adSet('ageMax',+this.value)"></div></div>
+  <label class="lbl">Sexe</label><div class="chips">${[['all','Tous'],['f','Femmes'],['m','Hommes']].map(g=>`<button class="chip ${AD.gender===g[0]?'on':''}" onclick="adSet('gender','${g[0]}',true)">${g[1]}</button>`).join('')}</div>
+  <label class="lbl">Centres d'intérêt (facultatif)</label><div class="chips" style="flex-wrap:wrap">${INTERESTS.map(i=>`<button class="chip ${AD.interests.includes(i)?'on':''}" onclick="AD.interests=AD.interests.includes('${i}')?AD.interests.filter(x=>x!=='${i}'):[...AD.interests,'${i}'];render()">${esc(i)}</button>`).join('')}</div>
+  <b style="display:block;margin:12px 0 4px">Placements</b><p class="muted small">Placements Advantage+ : fil d'actualité de ${esc(CONFIG.appName)} (mobile et ordinateur).</p></div>
 
-  ${sec(4,'Contenu de la publicité')}
-  ${AD.objective==='interactions'?`<label class="lbl">Publication à promouvoir</label><select onchange="adSet('postId',this.value)"><option value="">Choisir…</option>${myPosts.map(p=>`<option value="${p.id}" ${AD.postId===p.id?'selected':''}>${esc((p.text||'Photo').slice(0,60))} (${ago(p.ts)})</option>`).join('')}</select>${myPosts.length?'':'<p class="muted small">Publiez d\'abord quelque chose.</p>'}`
-  :`<input placeholder="Titre (ex. Promo -20% ce week-end !)" maxlength="60" value="${esc(AD.title)}" oninput="adSet('title',this.value)">
-  <textarea class="big" placeholder="Texte principal : produits, prix, adresse…" oninput="adSet('text',this.value)">${esc(AD.text)}</textarea>
+  <div class="card">${lvl('📄','Publicité','Identité, contenu et destination')}
+  <label class="lbl">Identité (annonceur)</label>
+  <select onchange="AD.src=this.value;AD.contact='';prefillAd(AD);render()">${srcs.map(s=>`<option value="${s.id}" ${s.id===AD.src?'selected':''}>${esc(s.name)}</option>`).join('')}</select>
+  ${AD.objective==='interactions'&&AD.engage==='post'?`<label class="lbl">Publication à promouvoir</label><select onchange="adSet('postId',this.value)"><option value="">Choisir…</option>${myPosts.map(p=>`<option value="${p.id}" ${AD.postId===p.id?'selected':''}>${esc((p.text||'Photo').slice(0,60))} (${ago(p.ts)})</option>`).join('')}</select>${myPosts.length?'':'<p class="muted small">Publiez d\'abord quelque chose.</p>'}`
+  :`<label class="lbl">Format</label><p class="small" style="margin-bottom:8px">🖼️ Image unique</p>
   <label class="btn full" style="margin:0 0 8px">📷 ${AD.img?'Changer l\'image':'Ajouter une image'}<input type="file" accept="image/*" hidden onchange="pickImg(this,d=>{AD.img=d;render()})"></label>
-  <label class="lbl">Bouton d'action</label><select onchange="adSet('ctaType',this.value,true)">${ob[3].filter(k=>k!=='page'||pg).map(k=>`<option value="${k}" ${AD.ctaType===k?'selected':''}>${CTA_LABELS[k]}</option>`).join('')}</select>
+  <label class="lbl">Texte principal</label><textarea class="big" placeholder="Présentez votre offre : produits, prix, adresse…" oninput="adSet('text',this.value)">${esc(AD.text)}</textarea>
+  <label class="lbl">Titre</label><input placeholder="Ex. Promo -20% ce week-end !" maxlength="60" value="${esc(AD.title)}" oninput="adSet('title',this.value)">
+  <label class="lbl">Bouton d'action</label><select onchange="adSet('ctaType',this.value,true)">${ctas.map(k=>`<option value="${k}" ${AD.ctaType===k?'selected':''}>${CTA_LABELS[k]}</option>`).join('')}</select>
   ${['whatsapp','order','call'].includes(AD.ctaType)?`<input placeholder="Numéro WhatsApp / téléphone" inputmode="tel" value="${esc(AD.contact)}" oninput="adSet('contact',this.value)">`:''}
   ${AD.ctaType==='link'?`<input placeholder="Adresse du site (https://…)" value="${esc(AD.link)}" oninput="adSet('link',this.value)">`:''}`}
-  <label class="lbl">Aperçu</label><div id="adprevcard" style="background:var(--bg);padding:8px;border-radius:10px">${adPreview()}</div>
+  <label class="lbl">Aperçu</label><div id="adprevcard" style="background:var(--bg);padding:8px;border-radius:10px">${adPreview()}</div></div>
 
-  ${sec(5,'Moyen de paiement')}
+  <div class="card">${lvl('💳','Moyen de paiement','Facturation')}
   ${CONFIG.payments.map(m=>`<label class="opt"><input type="radio" name="adpay" value="${m.id}" style="width:auto;margin:0" ${AD.pay===m.id?'checked':''} onchange="AD.pay=this.value">${m.icon} <b>${esc(m.name)}</b> <span class="muted small">au ${m.numbers.map(esc).join(' ou ')}</span></label>`).join('')}
   <input placeholder="Référence de la transaction (si vous avez déjà payé)" value="${esc(AD.ref)}" oninput="AD.ref=this.value">
-  <div class="pay small">Votre campagne sera d'abord <b>examinée par l'administrateur</b>. Elle sera diffusée dès que votre paiement est confirmé. Une facture est disponible dans « Facturation ».</div>
-  <button class="btn acc full" onclick="submitAd()">🚀 Envoyer la campagne pour validation</button></div>`;
+  <div class="pay small">Votre campagne sera d'abord <b>examinée par l'administrateur</b>, puis diffusée dès que votre paiement est confirmé. Une facture est disponible dans « Facturation ».</div>
+  <div class="row"><button class="btn grow" onclick="saveDraft()">💾 Enregistrer le brouillon</button><button class="btn acc grow" onclick="submitAd()">🚀 Publier</button></div></div>`;
+}
+function adErrors(x){
+  const c=adCalc(x);
+  if(!String(x.name||'').trim())return 'Donnez un nom à la campagne';
+  if(x.objective==='interactions'&&x.engage==='post'){if(!x.postId)return 'Choisissez la publication à promouvoir';}
+  else{if(String(x.title||'').trim().length<3)return "Donnez un titre à l'annonce";
+    if(['whatsapp','order','call'].includes(x.ctaType)&&waNum(x.contact).length<10)return 'Indiquez un numéro de contact valide';
+    if(x.ctaType==='link'&&!/^https?:\/\/\S+\.\S+/i.test(String(x.link||'').trim()))return 'Indiquez une adresse de site valide (https://…)';}
+  if(x.ageMin<13||x.ageMax<x.ageMin)return "Vérifiez la tranche d'âge";
+  if(x.start<todayStr())return 'La date de début ne peut pas être passée';
+  if(x.end<x.start)return 'La date de fin doit être après le début';
+  if(c.total<CONFIG.ads.minDaily||(x.budgetType==='daily'&&x.budget<CONFIG.ads.minDaily)||c.total/c.days<CONFIG.ads.minDaily)return `Budget minimum : ${fmtF(CONFIG.ads.minDaily)} par jour`;
+  if(!c.reach)return 'Aucune personne ne correspond à cette audience : élargissez-la';
+  return '';
+}
+function adFields(x){
+  const me=ME();const pg=x.src==='me'?null:P(x.src);const c=adCalc(x);
+  const p=x.objective==='interactions'&&x.engage==='post'?S.posts.find(y=>y.id===x.postId):null;
+  return {owner:me.id,pageId:pg?pg.id:null,advertiser:pg?pg.name:me.name,name:String(x.name||'').trim()||'Campagne sans nom',objective:x.objective,engage:x.objective==='interactions'?x.engage:null,
+    title:p?(p.text||'Publication').slice(0,60):String(x.title||'').trim(),text:p?'':String(x.text||'').trim(),img:p?null:x.img,postId:p?p.id:null,
+    ctaType:x.ctaType,contact:String(x.contact||'').trim(),link:String(x.link||'').trim(),cta:CTA_LABELS[x.ctaType]||'',
+    audience:{cities:[...x.cities],ageMin:x.ageMin,ageMax:x.ageMax,gender:x.gender,interests:[...x.interests]},
+    budgetType:x.budgetType,budget:x.budget,amount:c.total,days:c.days,maxViews:c.views,startDate:x.start,endDate:x.end,payMethod:x.pay,ref:String(x.ref||'').trim()};
+}
+function upsertAd(fields,status){
+  let a=AD.id?S.ads.find(y=>y.id===AD.id):null;
+  if(a)Object.assign(a,fields,{status,active:false,paid:false});
+  else{const code='PUB-'+Math.random().toString(36).slice(2,7).toUpperCase();a={id:uid(),...fields,code,invoiceNo:'FAC-'+code.slice(4),status,active:false,paid:false,views:0,clicks:0,viewers:[],ts:Date.now()};S.ads.unshift(a);}
+  return a;
+}
+function saveDraft(){
+  if(!String(AD.name||'').trim())return toast('Donnez un nom à la campagne');
+  upsertAd(adFields(AD),'draft');AD=null;save();toast('Brouillon enregistré 💾');nav('#/my-ads');
 }
 function submitAd(){
-  const me=ME();const pg=AD.src==='me'?null:P(AD.src);const c=adCalc(AD);const ob=OBJECTIVES[AD.objective];
-  if(AD.objective==='interactions'){if(!AD.postId)return toast('Choisissez la publication à promouvoir');}
-  else{if(AD.title.trim().length<3)return toast("Donnez un titre à l'annonce");
-    if(['whatsapp','order','call'].includes(AD.ctaType)&&waNum(AD.contact).length<10)return toast('Indiquez un numéro de contact valide');
-    if(AD.ctaType==='link'&&!/^https?:\/\/\S+\.\S+/i.test(AD.link.trim()))return toast('Indiquez une adresse de site valide (https://…)');}
-  if(AD.ageMin<13||AD.ageMax<AD.ageMin)return toast("Vérifiez la tranche d'âge");
-  if(AD.start<todayStr())return toast('La date de début ne peut pas être passée');
-  if(AD.end<AD.start)return toast('La date de fin doit être après le début');
-  if(c.total<CONFIG.ads.minDaily||(AD.budgetType==='daily'&&AD.budget<CONFIG.ads.minDaily)||c.total/c.days<CONFIG.ads.minDaily)return toast(`Budget minimum : ${fmtF(CONFIG.ads.minDaily)} par jour`);
-  if(!c.reach)return toast('Aucune personne ne correspond à cette audience : élargissez-la');
-  const code='PUB-'+Math.random().toString(36).slice(2,7).toUpperCase();const pm=CONFIG.payments.find(m=>m.id===AD.pay)||CONFIG.payments[0];
-  const p=AD.objective==='interactions'?S.posts.find(x=>x.id===AD.postId):null;
-  const a={id:uid(),owner:me.id,pageId:pg?pg.id:null,advertiser:pg?pg.name:me.name,objective:AD.objective,
-    title:p?(p.text||'Publication').slice(0,60):AD.title.trim(),text:p?'':AD.text.trim(),img:p?null:AD.img,postId:p?p.id:null,
-    ctaType:AD.ctaType,contact:AD.contact.trim(),link:AD.link.trim(),cta:CTA_LABELS[AD.ctaType]||'',
-    audience:{cities:AD.cities,ageMin:AD.ageMin,ageMax:AD.ageMax,gender:AD.gender,interests:AD.interests},
-    budgetType:AD.budgetType,budget:AD.budget,amount:c.total,days:c.days,maxViews:c.views,startDate:AD.start,endDate:AD.end,
-    payMethod:pm.id,ref:AD.ref.trim(),code,invoiceNo:'FAC-'+code.slice(4),status:'review',active:false,paid:false,views:0,clicks:0,viewers:[],ts:Date.now()};
-  S.ads.unshift(a);AD=null;
-  notify(adminId(),`📣 Campagne ${code} à examiner : ${a.advertiser} · ${ob[1]} · ${fmtF(a.amount)}`,'#/admin/ads');
+  const err=adErrors(AD);if(err)return toast(err);
+  const a=upsertAd(adFields(AD),'review');AD=null;const pm=CONFIG.payments.find(m=>m.id===a.payMethod)||CONFIG.payments[0];
+  notify(adminId(),`📣 Campagne ${a.code} à examiner : ${a.advertiser} · ${objOf(a).name} · ${fmtF(a.amount)}`,'#/admin/ads');
   save();
-  navThen('#/my-ads',()=>modal(`<h3>✅ Campagne envoyée</h3><p>Code : <b>${esc(code)}</b> · Facture <b>${esc(a.invoiceNo)}</b></p>
+  navThen('#/my-ads',()=>modal(`<h3>✅ Campagne envoyée</h3><p>Code : <b>${esc(a.code)}</b> · Facture <b>${esc(a.invoiceNo)}</b></p>
     <div class="pay">Elle est maintenant <b>en cours d'examen</b>. Envoyez <b>${fmtF(a.amount)}</b> par <b>${esc(pm.name)}</b> au <b>${pm.numbers.map(esc).join(' ou ')}</b>, puis prévenez l'administrateur. Elle sera diffusée dès validation.</div>
     <a class="btn acc full" href="${esc(waAdmin(a))}" target="_blank" rel="noopener" onclick="closeModal()">📲 Prévenir l'administrateur sur WhatsApp</a>
     <button class="btn full" onclick="closeModal();go('#/invoice/${a.id}')">🧾 Voir la facture</button>
     <button class="btn ghost full" onclick="closeModal()">Plus tard</button>`));
 }
+function publishDrafts(){
+  const me=ME().id;const ds=S.ads.filter(a=>a.owner===me&&a.status==='draft');let ok=0,ko=[];
+  ds.forEach(a=>{const d=adToDraft(a);const err=adErrors(d);if(err){ko.push(`« ${a.name} » : ${err}`);return;}AD={...d,id:a.id};upsertAd(adFields(AD),'review');ok++;notify(adminId(),`📣 Campagne ${a.code} à examiner : ${a.advertiser} · ${fmtF(a.amount)}`,'#/admin/ads');});
+  AD=null;save();render();
+  modal(`<h3>Vérifier et publier</h3><p>✅ ${plural(ok,'campagne')} envoyée${ok>1?'s':''} pour examen.</p>${ko.length?`<p style="margin-top:8px">⚠️ À compléter :</p><ul style="margin-left:18px" class="small">${ko.map(k=>`<li>${esc(k)}</li>`).join('')}</ul>`:''}<button class="btn pri full" onclick="closeModal()">OK</button>`);
+}
 function waAdmin(a){
-  const ob=OBJECTIVES[a.objective]||['','Campagne'];const t=a.audience||{};
-  const msg=`Bonjour, je viens de lancer une campagne publicitaire sur ${CONFIG.appName}.\nCode : ${a.code}\nFacture : ${a.invoiceNo||'-'}\nAnnonceur : ${a.advertiser}\nObjectif : ${ob[1]}\nAudience : ${(t.cities&&t.cities.length?t.cities.join(', '):"Toute la Côte d'Ivoire")}, ${t.ageMin||18}-${t.ageMax||65} ans\nPériode : du ${a.startDate||''} au ${a.endDate||''}\nMontant : ${fmtF(a.amount)}${a.ref?'\nRéférence de paiement : '+a.ref:'\nJe vous envoie le paiement.'}`;
+  const t=a.audience||{};
+  const msg=`Bonjour, je viens de lancer une campagne publicitaire sur ${CONFIG.appName}.\nCampagne : ${a.name||a.title}\nCode : ${a.code}\nFacture : ${a.invoiceNo||'-'}\nAnnonceur : ${a.advertiser}\nObjectif : ${objOf(a).name}\nAudience : ${(t.cities&&t.cities.length?t.cities.join(', '):"Toute la Côte d'Ivoire")}, ${t.ageMin||18}-${t.ageMax||65} ans\nPériode : du ${a.startDate||''} au ${a.endDate||''}\nMontant : ${fmtF(a.amount)}${a.ref?'\nRéférence de paiement : '+a.ref:'\nJe vous envoie le paiement.'}`;
   return `https://wa.me/${CONFIG.adminWhatsApp}?text=${encodeURIComponent(msg)}`;
 }
-function adStatus(a){
-  if(a.status==='review'||a.status==='pending')return '<span class="tag wait">En cours d\'examen</span>';
-  if(a.status==='approved')return '<span class="tag blue">Approuvée · en attente du paiement</span>';
-  if(a.status==='refused')return '<span class="tag no">Refusée</span>';
-  if(a.status==='ok'&&budgetDone(a))return '<span class="tag no">Budget atteint</span>';
-  if(a.endsAt&&a.endsAt<=Date.now())return '<span class="tag no">Terminée</span>';
-  if(a.paused||!a.active)return '<span class="tag wait">En pause</span>';
-  if(a.startsAt&&a.startsAt>Date.now())return '<span class="tag blue">Programmée</span>';
-  return '<span class="tag ok">● Active</span>';
+function adState(a){
+  if(a.status==='draft')return ['Brouillon','#8a8d91',true];
+  if(a.status==='review'||a.status==='pending')return ["En cours d'examen",'#e8a317'];
+  if(a.status==='approved')return ['Approuvée · en attente du paiement','#1a73e8'];
+  if(a.status==='refused')return ['Refusée','#d93025'];
+  if(a.status==='ok'&&budgetDone(a))return ['Budget atteint','#8a8d91'];
+  if(a.endsAt&&a.endsAt<=Date.now())return ['Terminée','#8a8d91'];
+  if(a.paused||!a.active)return ['Désactivée','#8a8d91'];
+  if(a.startsAt&&a.startsAt>Date.now())return ['Programmée','#1a73e8'];
+  return ['Active','#0b7a4b'];
 }
-const adSpent=a=>Math.min(a.amount||0,Math.round((a.views||0)*CONFIG.ads.cpm/1000));
+function adStatus(a){const s=adState(a);return `<span class="small" style="white-space:nowrap"><span class="dot" style="${s[2]?'border:2px solid '+s[1]:'background:'+s[1]}"></span>${s[0]}</span>`;}
+const adSpent=a=>a.status==='ok'?Math.min(a.amount||0,Math.round((a.views||0)*CONFIG.ads.cpm/1000)):0;
+function resultsOf(a){
+  const o=objOf(a);
+  if(o.key==='notoriete')return (a.viewers||[]).length;
+  if(o.key==='interactions'&&o.engage==='post'){const p=S.posts.find(x=>x.id===a.postId);return p?Object.keys(reactsOf(p)).length+(p.comments||[]).length:0;}
+  return a.clicks||0;
+}
+const canToggle=a=>a.status==='ok'&&!(a.endsAt&&a.endsAt<=Date.now())&&!budgetDone(a);
+let amTab='campaigns',amFilter='all';
 function myAdsView(){
-  const me=ME().id;const ads=S.ads.filter(a=>a.owner===me);
-  const tv=ads.reduce((s,a)=>s+(a.views||0),0),tc=ads.reduce((s,a)=>s+(a.clicks||0),0),ts=ads.reduce((s,a)=>s+(a.status==='ok'?adSpent(a):0),0);
-  return `<div class="row between" style="margin:4px 0 8px"><h2>📊 Gestionnaire de publicités</h2></div>
-  <div class="row" style="margin-bottom:10px"><button class="btn acc grow" onclick="AD=null;go('#/ad-new/me')">+ Créer une campagne</button><button class="btn grow" onclick="go('#/billing')">🧾 Facturation</button></div>
-  <div class="stats"><div class="stat"><b>${tv.toLocaleString('fr-FR')}</b><span class="muted small">Affichages</span></div><div class="stat"><b>${tc}</b><span class="muted small">Clics</span></div><div class="stat"><b>${tv?(tc*100/tv).toFixed(1):0} %</b><span class="muted small">Taux de clic</span></div><div class="stat"><b>${fmtF(ts)}</b><span class="muted small">Montant dépensé</span></div></div>
-  ${ads.map(a=>{const ob=OBJECTIVES[a.objective]||['📣','Campagne'];const t=a.audience||{};return `<div class="card"><div class="row between" style="align-items:flex-start"><b class="grow">${esc(a.title)}</b>${adStatus(a)}</div>
-  <div class="muted small">${ob[0]} ${ob[1]} · ${esc(a.advertiser)} · ${esc(a.code||'')}</div>
-  <div class="muted small">👥 ${t.cities&&t.cities.length?esc(t.cities.join(', ')):"Toute la Côte d'Ivoire"}${t.ageMin?` · ${t.ageMin}-${t.ageMax} ans`:''}${t.gender&&t.gender!=='all'?(t.gender==='f'?' · Femmes':' · Hommes'):''}${t.interests&&t.interests.length?' · '+esc(t.interests.join(', ')):''}</div>
-  <div class="muted small">📅 ${a.startDate?`${new Date(a.startDate+'T12:00').toLocaleDateString('fr-FR')} → ${new Date(a.endDate+'T12:00').toLocaleDateString('fr-FR')}`:''} · 💰 ${a.budgetType==='daily'?fmtF(a.budget)+'/jour · ':''}Total ${fmtF(a.amount)}</div>
-  ${a.refuseReason?`<div class="small" style="color:#d93025;margin-top:4px">Motif du refus : ${esc(a.refuseReason)}</div>`:''}
-  <div class="row between small" style="margin-top:8px;text-align:center"><div>👁️ <b>${a.views||0}</b><br><span class="muted tiny">affichages</span></div><div>👤 <b>${(a.viewers||[]).length}</b><br><span class="muted tiny">portée</span></div><div>👆 <b>${a.clicks||0}</b><br><span class="muted tiny">clics</span></div><div>💸 <b>${fmtF(a.status==='ok'?adSpent(a):0)}</b><br><span class="muted tiny">dépensé</span></div></div>
-  <div class="row wrap" style="margin-top:8px">${a.status==='ok'&&!(a.endsAt&&a.endsAt<=Date.now())&&!budgetDone(a)?`<button class="btn sm" onclick="pauseAd('${a.id}')">${a.paused?'▶️ Reprendre':'⏸️ Mettre en pause'}</button>`:''}
-  ${['review','pending','approved'].includes(a.status)?`<a class="btn acc sm" href="${esc(waAdmin(a))}" target="_blank" rel="noopener">📲 Prévenir l'admin</a><button class="btn sm" onclick="cancelAd('${a.id}')">Annuler</button>`:''}
-  <button class="btn sm" onclick="go('#/invoice/${a.id}')">🧾 Facture</button><button class="btn sm" onclick="duplicateAd('${a.id}')">📄 Dupliquer</button></div></div>`;}).join('')||empty("Vous n'avez lancé aucune campagne pour le moment.")}`;
+  const me=ME();const all=S.ads.filter(a=>a.owner===me.id);
+  const F={all:['Toutes les publicités',()=>true],active:['Publicités actives',a=>isAdLive(a)],draft:['Brouillons',a=>a.status==='draft'],review:["En examen",a=>['review','pending','approved'].includes(a.status)],ended:['Terminées',a=>a.status==='refused'||(a.endsAt&&a.endsAt<=Date.now())||(a.status==='ok'&&budgetDone(a))]};
+  const ads=all.filter(F[amFilter][1]);const drafts=all.filter(a=>a.status==='draft').length;
+  const tv=all.reduce((s,a)=>s+(a.views||0),0),tc=all.reduce((s,a)=>s+(a.clicks||0),0),ts=all.reduce((s,a)=>s+adSpent(a),0);
+  const tog=a=>`<button class="tg ${canToggle(a)&&!a.paused?'on':''}" ${canToggle(a)?`onclick="event.stopPropagation();pauseAd('${a.id}')"`:'disabled style="opacity:.45"'} title="Activer / désactiver"></button>`;
+  const nm=a=>`<a href="#/ad/${a.id}" class="name">${esc(a.name||a.title)}</a><div class="muted tiny">${objOf(a).icon} ${esc(objOf(a).name)} · ${esc(a.code||'')}</div>`;
+  const aud=a=>{const t=a.audience||{};return `${t.cities&&t.cities.length?esc(t.cities.join(', ')):'🇨🇮 Toute la CI'}<div class="muted tiny">${t.ageMin||18}-${t.ageMax||65} ans${t.gender&&t.gender!=='all'?(t.gender==='f'?' · Femmes':' · Hommes'):''}${t.interests&&t.interests.length?' · '+esc(t.interests.slice(0,2).join(', ')):''}</div>`;};
+  const bud=a=>`${a.budgetType==='daily'?fmtF(a.budget)+'<div class="muted tiny">Quotidien</div>':fmtF(a.amount)+'<div class="muted tiny">Total</div>'}`;
+  const fd=d=>d?new Date(d+'T12:00').toLocaleDateString('fr-FR',{day:'numeric',month:'short'}):'—';
+  const cols={
+    campaigns:[['','',a=>tog(a)],['Campagne','',nm],['Diffusion','',a=>adStatus(a)],['Résultats','n',a=>a.status==='draft'?'—':`${resultsOf(a)}<div class="muted tiny">${esc(objOf(a).res)}</div>`],['Coût par résultat','n',a=>{const r=resultsOf(a);return r&&adSpent(a)?fmtF(Math.round(adSpent(a)/r)):'—';}],['Budget','n',bud],['Montant dépensé','n',a=>a.status==='draft'?'—':fmtF(adSpent(a))],['Impressions','n',a=>(a.views||0).toLocaleString('fr-FR')],['Portée','n',a=>(a.viewers||[]).length],['Clics','n',a=>a.clicks||0],['Fin','n',a=>fd(a.endDate)]],
+    adsets:[['','',a=>tog(a)],['Ensemble de publicités','',a=>`<a href="#/ad/${a.id}" class="name">${esc(a.name||a.title)} · Ensemble</a>`],['Diffusion','',a=>adStatus(a)],['Audience','',aud],['Budget','n',bud],['Calendrier','n',a=>`${fd(a.startDate)} → ${fd(a.endDate)}`],['Placements','',()=>'Fil d\'actualité'],['Montant dépensé','n',a=>fmtF(adSpent(a))]],
+    ads:[['','',a=>tog(a)],['Publicité','',a=>`<div class="row" style="align-items:flex-start"><div style="width:44px;height:44px;border-radius:6px;background:${a.img?`url('${esc(a.img)}') center/cover`:'var(--in)'};display:flex;align-items:center;justify-content:center;flex-shrink:0">${a.img?'':'📣'}</div><div><a href="#/ad/${a.id}" class="name">${esc(a.title)}</a><div class="muted tiny">${esc((a.text||'').slice(0,50))}</div></div></div>`],['Diffusion','',a=>adStatus(a)],['Identité','',a=>esc(a.advertiser)],['Bouton','',a=>esc(a.cta||'—')],['Résultats','n',a=>resultsOf(a)],['Clics','n',a=>a.clicks||0],['Taux de clic','n',a=>a.views?((a.clicks||0)*100/a.views).toFixed(1)+' %':'—']]
+  }[amTab];
+  return `<div class="row between wrap" style="margin:4px 0 8px"><h2>Gestionnaire de publicités</h2>${drafts?`<button class="btn pri sm" onclick="publishDrafts()">Vérifier et publier (${drafts})</button>`:''}</div>
+  <div class="card row" style="padding:10px"><span class="av" style="width:32px;height:32px;background:${color(me.name)};font-size:13px">${esc(initials(me.name))}</span><div class="grow"><b class="small">${esc(me.name)}</b><div class="muted tiny">Compte publicitaire · ${plural(all.length,'campagne')}</div></div><button class="btn sm" onclick="go('#/billing')">🧾 Facturation</button></div>
+  <div class="stats"><div class="stat"><b>${tv.toLocaleString('fr-FR')}</b><span class="muted small">Impressions</span></div><div class="stat"><b>${tc}</b><span class="muted small">Clics</span></div><div class="stat"><b>${tv?(tc*100/tv).toFixed(1):0} %</b><span class="muted small">Taux de clic</span></div><div class="stat"><b>${fmtF(ts)}</b><span class="muted small">Montant dépensé</span></div></div>
+  <div class="chips">${Object.entries(F).map(([k,f])=>`<button class="chip ${amFilter===k?'on':''}" onclick="amFilter='${k}';render()">${f[0]}${k==='draft'&&drafts?` (${drafts})`:''}</button>`).join('')}</div>
+  <div class="amtabs">${[['campaigns','📁 Campagnes'],['adsets','🗂️ Ensembles de publicités'],['ads','📄 Publicités']].map(t=>`<button class="${amTab===t[0]?'on':''}" onclick="amTab='${t[0]}';render()">${t[1]}</button>`).join('')}</div>
+  <div class="amwrap"><div class="row" style="padding:8px"><button class="btn pri sm" onclick="adCreateModal()">＋ Créer</button><span class="muted tiny grow" style="text-align:right">${plural(ads.length,'résultat')}</span></div>
+  ${ads.length?`<table class="amt"><thead><tr>${cols.map(c=>`<th class="${c[1]}">${c[0]}</th>`).join('')}</tr></thead><tbody>${ads.map(a=>`<tr onclick="go('#/ad/${a.id}')">${cols.map(c=>`<td class="${c[1]}">${c[2](a)}</td>`).join('')}</tr>`).join('')}</tbody></table>`
+  :`<div class="empty">${all.length?'Aucune campagne dans ce filtre.':'Aucune campagne pour le moment.<br><br><button class="btn pri" onclick="adCreateModal()">＋ Créer ma première campagne</button>'}</div>`}</div>`;
 }
-function pauseAd(id){const a=S.ads.find(x=>x.id===id);a.paused=!a.paused;save();render();toast(a.paused?'Campagne en pause':'Campagne relancée');}
-function cancelAd(id){if(!confirm('Annuler cette campagne ?'))return;S.ads=S.ads.filter(a=>a.id!==id);save();render();}
+function adDetailView(id){
+  const a=S.ads.find(x=>x.id===id);const me=ME();if(!a||(a.owner!==me.id&&!me.isAdmin))return empty('Campagne introuvable');
+  const o=objOf(a);const t=a.audience||{};const r=resultsOf(a),sp=adSpent(a);
+  const st=[[r,o.res],[r&&sp?fmtF(Math.round(sp/r)):'—','Coût par résultat'],[(a.views||0).toLocaleString('fr-FR'),'Impressions'],[(a.viewers||[]).length,'Portée'],[a.clicks||0,'Clics'],[a.views?((a.clicks||0)*100/a.views).toFixed(1)+' %':'—','Taux de clic'],[fmtF(sp),'Montant dépensé'],[fmtF(a.amount||0),'Budget total']];
+  return `<a class="back" href="#/my-ads">← Gestionnaire de publicités</a>
+  <div class="card"><div class="row between" style="align-items:flex-start"><div class="grow"><h3 style="margin:0">${esc(a.name||a.title)}</h3><div class="muted small">${o.icon} ${esc(o.name)} · ${esc(a.code||'')}</div></div>${canToggle(a)?`<button class="tg ${a.paused?'':'on'}" onclick="pauseAd('${a.id}')"></button>`:''}</div>
+  <div style="margin-top:6px">${adStatus(a)}</div>${a.refuseReason?`<div class="small" style="color:#d93025;margin-top:4px">Motif du refus : ${esc(a.refuseReason)}</div>`:''}</div>
+  <div class="stats">${st.map(x=>`<div class="stat"><b>${x[0]}</b><span class="muted small">${esc(x[1])}</span></div>`).join('')}</div>
+  <div class="card"><h3>🗂️ Ensemble de publicités</h3><div class="small about">
+  <div><span>👥</span><span>${t.cities&&t.cities.length?esc(t.cities.join(', ')):"Toute la Côte d'Ivoire"} · ${t.ageMin||18}-${t.ageMax||65} ans${t.gender&&t.gender!=='all'?(t.gender==='f'?' · Femmes':' · Hommes'):''}${t.interests&&t.interests.length?' · '+esc(t.interests.join(', ')):''}</span></div>
+  <div><span>📅</span><span>${a.startDate?new Date(a.startDate+'T12:00').toLocaleDateString('fr-FR'):'—'} → ${a.endDate?new Date(a.endDate+'T12:00').toLocaleDateString('fr-FR'):'—'}</span></div>
+  <div><span>💰</span><span>${a.budgetType==='daily'?fmtF(a.budget)+' par jour · ':''}Total ${fmtF(a.amount||0)} · ≈ ${(a.maxViews||0).toLocaleString('fr-FR')} affichages</span></div>
+  <div><span>📱</span><span>Fil d'actualité</span></div></div></div>
+  <div class="card"><h3>📄 Publicité</h3><div style="background:var(--bg);padding:8px;border-radius:10px">${adCard(a)||'<span class="muted small">Publication supprimée</span>'}</div></div>
+  <div class="row wrap">${a.status==='draft'&&a.owner===me.id?`<button class="btn pri" onclick="AD=null;go('#/ad-edit/${a.id}')">✏️ Modifier</button>`:''}
+  ${['review','pending','approved'].includes(a.status)?`<a class="btn acc" href="${esc(waAdmin(a))}" target="_blank" rel="noopener">📲 Prévenir l'admin</a>`:''}
+  <button class="btn" onclick="go('#/invoice/${a.id}')">🧾 Facture</button><button class="btn" onclick="duplicateAd('${a.id}')">📄 Dupliquer</button>
+  ${a.status!=='ok'&&a.owner===me.id?`<button class="btn red" onclick="cancelAd('${a.id}')">🗑️ ${a.status==='draft'?'Supprimer':'Annuler'}</button>`:''}</div>`;
+}
+function pauseAd(id){const a=S.ads.find(x=>x.id===id);a.paused=!a.paused;save();render();toast(a.paused?'Campagne désactivée':'Campagne activée');}
+function cancelAd(id){if(!confirm('Supprimer cette campagne ?'))return;S.ads=S.ads.filter(a=>a.id!==id);save();nav('#/my-ads');}
 function duplicateAd(id){
-  const a=S.ads.find(x=>x.id===id);if(!a)return;const src=a.pageId||'me';
-  AD=newAdDraft(src);const t=a.audience||{};
-  Object.assign(AD,{objective:a.objective||'messages',title:a.title,text:a.text||'',img:a.img||null,ctaType:a.ctaType||'whatsapp',contact:a.contact||'',link:a.link||'',postId:a.postId||'',cities:t.cities||[],ageMin:t.ageMin||18,ageMax:t.ageMax||65,gender:t.gender||'all',interests:t.interests||[],budgetType:a.budgetType||'daily',budget:a.budget||1000});
-  go('#/ad-new/'+src);
+  const a=S.ads.find(x=>x.id===id);if(!a)return;
+  AD=adToDraft(a);AD.name=(a.name||a.title)+' (copie)';
+  if(!adSources().some(s=>s.id===AD.src))AD.src=adSources()[0]?adSources()[0].id:'me';
+  go('#/ad-new/'+AD.src);
 }
 function billingView(){
   const me=ME().id;const ads=S.ads.filter(a=>a.owner===me&&a.amount);
@@ -1600,11 +1778,11 @@ function billingView(){
 }
 function invoiceView(id){
   const a=S.ads.find(x=>x.id===id);const me=ME();if(!a||(a.owner!==me.id&&!me.isAdmin))return empty('Facture introuvable');
-  const u=U(a.owner)||{name:'?'};const ob=OBJECTIVES[a.objective]||['📣','Campagne publicitaire'];const pm=CONFIG.payments.find(m=>m.id===a.payMethod)||{name:a.payMethod||'—'};
+  const u=U(a.owner)||{name:'?'};const _o=objOf(a);const ob=[_o.icon,_o.name];const pm=CONFIG.payments.find(m=>m.id===a.payMethod)||{name:a.payMethod||'—'};
   return `<a class="back" href="javascript:history.back()">← Retour</a><div class="card" id="invoice">
   <div class="row between" style="align-items:flex-start"><div><div class="logo">${esc(CONFIG.appName.toLowerCase())}</div><div class="muted tiny">${esc(CONFIG.slogan)}</div></div><div style="text-align:right"><b>FACTURE</b><div class="small">${esc(a.invoiceNo||a.code)}</div><div class="muted tiny">${new Date(a.ts).toLocaleDateString('fr-FR')}</div></div></div>
   <div class="sep"></div>
-  <div class="small"><b>Client :</b> ${esc(u.name)}${a.pageId&&P(a.pageId)?' — Page '+esc(P(a.pageId).name):''}<br><b>Campagne :</b> ${esc(a.title)} (${esc(a.code)})<br><b>Objectif :</b> ${ob[0]} ${ob[1]}<br><b>Période :</b> ${a.startDate?new Date(a.startDate+'T12:00').toLocaleDateString('fr-FR')+' au '+new Date(a.endDate+'T12:00').toLocaleDateString('fr-FR'):'—'} (${plural(a.days||0,'jour')})</div>
+  <div class="small"><b>Client :</b> ${esc(u.name)}${a.pageId&&P(a.pageId)?' — Page '+esc(P(a.pageId).name):''}<br><b>Campagne :</b> ${esc(a.name||a.title)} (${esc(a.code)})<br><b>Objectif :</b> ${ob[0]} ${ob[1]}<br><b>Période :</b> ${a.startDate?new Date(a.startDate+'T12:00').toLocaleDateString('fr-FR')+' au '+new Date(a.endDate+'T12:00').toLocaleDateString('fr-FR'):'—'} (${plural(a.days||0,'jour')})</div>
   <div class="sep"></div>
   <div class="row between small"><span>${a.budgetType==='daily'?`Budget quotidien ${fmtF(a.budget)} × ${a.days} j`:'Budget total'}</span><b>${fmtF(a.amount)}</b></div>
   <div class="row between small muted"><span>Affichages prévus</span><span>≈ ${(a.maxViews||0).toLocaleString('fr-FR')}</span></div>
@@ -1649,8 +1827,8 @@ function adminView(tab){
     ${b.status==='pending'?`<div class="row" style="margin-top:6px"><button class="btn pri sm" onclick="validateBoost('${b.id}',true)">✔ Paiement reçu</button><button class="btn red sm" onclick="validateBoost('${b.id}',false)">Refuser</button></div>`:''}</div></div>`;}).join('')||empty('Aucune demande de boost.')}</div>`;
   }
   if(tab==='ads'){
-    const card=a=>{const u=U(a.owner)||{name:'?'};const ob=OBJECTIVES[a.objective]||['📣','Campagne'];const t=a.audience||{};const pm=CONFIG.payments.find(m=>m.id===a.payMethod);
-      return `<div class="list-item" style="align-items:flex-start"><div class="grow"><b>${esc(a.code)}</b> ${adStatus(a)}<div class="small"><b>${esc(a.title)}</b> — ${esc(a.advertiser)} (par <a href="#/profile/${a.owner}">${esc(u.name)}</a>)</div>
+    const card=a=>{const u=U(a.owner)||{name:'?'};const _o=objOf(a);const ob=[_o.icon,_o.name];const t=a.audience||{};const pm=CONFIG.payments.find(m=>m.id===a.payMethod);
+      return `<div class="list-item" style="align-items:flex-start"><div class="grow"><b>${esc(a.code)}</b> ${adStatus(a)}<div class="small"><b>${esc(a.name||a.title)}</b> — ${esc(a.advertiser)} (par <a href="#/profile/${a.owner}">${esc(u.name)}</a>)</div>
       <div class="muted small">${ob[0]} ${ob[1]} · 👥 ${t.cities&&t.cities.length?esc(t.cities.join(', ')):'Toute la CI'}, ${t.ageMin||'?'}-${t.ageMax||'?'} ans${t.gender&&t.gender!=='all'?(t.gender==='f'?', femmes':', hommes'):''} · 📅 ${esc(a.startDate||'')} → ${esc(a.endDate||'')}</div>
       <div class="small">💰 <b>${fmtF(a.amount)}</b> · ${pm?pm.icon+' '+esc(pm.name):''} ${a.ref?'· réf. <b>'+esc(a.ref)+'</b>':'· pas encore de référence'} · ${ago(a.ts)}</div>
       ${a.objective==='interactions'?`<a class="small" href="#/post/${a.postId}">Voir la publication promue →</a>`:a.img?`<img src="${esc(a.img)}" style="width:100%;max-height:160px;object-fit:cover;border-radius:8px;margin-top:6px">`:''}${a.text?`<div class="small muted" style="margin-top:4px">${esc(a.text.slice(0,200))}</div>`:''}
@@ -1747,6 +1925,8 @@ function render(){
     case 'page-edit':html=pageEditView(param||'new');break;
     case 'ad-new':html=adNewView(param||'me');break;
     case 'my-ads':html=myAdsView();break;
+    case 'ad':html=adDetailView(param);break;
+    case 'ad-edit':html=adEditView(param);break;
     case 'billing':html=billingView();break;
     case 'invoice':html=invoiceView(param);break;
     case 'admin':html=me.isAdmin?adminView(param||'stats'):feedView();break;
