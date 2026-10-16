@@ -1,0 +1,30 @@
+{
+  "name": "bonpro",
+  "version": "1.0.0",
+  "description": "BonPro — offres d’emploi vérifiées, alertes, CV sur mesure et espace recruteurs (PWA)",
+  "main": "server/index.js",
+  "scripts": {
+    "start": "node server/index.js",
+    "seed": "node server/seed.js",
+    "test": "node test/api.test.js"
+  },
+  "license": "UNLICENSED",
+  "dependencies": {
+    "bcryptjs": "^3.0.3",
+    "compression": "^1.8.2",
+    "cookie-parser": "^1.4.7",
+    "express": "^5.3.0",
+    "helmet": "^8.3.0",
+    "jsonwebtoken": "^9.0.3",
+    "multer": "^2.4.0",
+    "pg": "^8.23.1",
+    "web-push": "^3.6.7"
+  },
+  "devDependencies": {
+    "@electric-sql/pglite": "^0.5.10"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "private": true
+}
