@@ -10,7 +10,8 @@ async function init() {
     const { Pool } = require('pg');
     const pool = new Pool({
       connectionString: process.env.DATABASE_URL,
-      ssl: process.env.DATABASE_SSL === 'false' ? false : { rejectUnauthorized: false },
+      // adresse interne Render (sans point) : pas de SSL ; adresse externe : SSL
+      ssl: process.env.DATABASE_SSL === 'false' || !new URL(process.env.DATABASE_URL).hostname.includes('.') ? false : { rejectUnauthorized: false },
       max: 5,
     });
     impl = { query: (sql, params) => pool.query(sql, params), exec: (sql) => pool.query(sql) };
