@@ -10,6 +10,7 @@
   },
   "license": "UNLICENSED",
   "dependencies": {
+    "@electric-sql/pglite": "^0.5.10",
     "bcryptjs": "^3.0.3",
     "compression": "^1.8.2",
     "cookie-parser": "^1.4.7",
@@ -19,9 +20,6 @@
     "multer": "^2.4.0",
     "pg": "^8.23.1",
     "web-push": "^3.6.7"
-  },
-  "devDependencies": {
-    "@electric-sql/pglite": "^0.5.10"
   },
   "engines": {
     "node": ">=20"
