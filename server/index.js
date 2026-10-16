@@ -737,6 +737,11 @@ async function start() {
     [process.env.ADMIN_NAME || 'Administrateur BonPro', adminPhone, await bcrypt.hash(pwd, 10)]);
     console.log(`Compte administrateur créé : ${adminPhone} / ${process.env.ADMIN_PASSWORD ? '(mot de passe ADMIN_PASSWORD)' : pwd}`);
   }
+  if (!(await db.one('SELECT id FROM offers LIMIT 1'))) {
+    const n = await require('./seed').seed();
+    console.log(`${n} offre(s) de départ ajoutée(s)`);
+  }
+  if (IS_PROD && !process.env.DATABASE_URL) console.warn('ATTENTION : DATABASE_URL absente, les données seront perdues au redémarrage.');
   app.listen(PORT, () => console.log(`BonPro en ligne sur le port ${PORT}`));
 }
 

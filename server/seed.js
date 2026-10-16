@@ -18,8 +18,7 @@ const OFFERS = [
     description: 'Révision du rapport annuel et des rapports de situation du bureau pays en anglais.',
     apply_url: 'https://unvacancies.org/jobs/international-consultant-editing-and-review-the-english-country-office-annual-report-annual-sitrep-t-F-596251', source: 'UNICEF via unvacancies.org' },
 ];
-(async () => {
-  await db.init();
+async function seed() {
   let n = 0;
   for (const o of OFFERS) {
     if (await db.one('SELECT id FROM offers WHERE apply_url=$1', [o.apply_url])) continue;
@@ -28,5 +27,9 @@ const OFFERS = [
     [o.title, o.employer, o.location, o.category, o.domain, o.contract || null, o.salary || null, o.deadline || null, o.description || null, o.requirements || null, o.apply_url, o.source]);
     n++;
   }
-  console.log(`${n} offre(s) ajoutée(s)`); process.exit(0);
-})();
+  return n;
+}
+module.exports = { seed };
+if (require.main === module) {
+  db.init().then(seed).then((n) => { console.log(`${n} offre(s) ajoutée(s)`); process.exit(0); });
+}
