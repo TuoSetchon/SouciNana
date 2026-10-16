@@ -14,6 +14,8 @@ async function init() {
       max: 5,
     });
     impl = { query: (sql, params) => pool.query(sql, params), exec: (sql) => pool.query(sql) };
+  } else if (process.env.NODE_ENV === 'production') {
+    throw new Error('DATABASE_URL manquante : ajoutez l’« Internal Database URL » de la base bonpro-db dans les variables d’environnement du service.');
   } else {
     const { PGlite } = require('@electric-sql/pglite');
     const dir = process.env.PGLITE_DIR || path.join(__dirname, '..', 'data', 'pglite');
