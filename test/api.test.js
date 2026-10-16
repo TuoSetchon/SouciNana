@@ -1,5 +1,6 @@
 // Test des parcours BonPro via l'API (base PGlite en mémoire)
 process.env.PGLITE_DIR = 'memory://';
+process.env.SKIP_SEED = '1';
 process.env.ADMIN_PASSWORD = 'admin123';
 process.env.PORT = '3222';
 const assert = require('assert');
